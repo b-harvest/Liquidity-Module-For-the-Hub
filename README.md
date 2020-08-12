@@ -10,6 +10,8 @@ While general structure of the implementation comes from Uniswap, we customize s
 
 We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded by this liquidity module v1, but we hope to invest our energy fully to maintain, grow, improve and expand utilities in a much longer time scale to provide the best liquidity utility for the entire blockchain ecosystem.
 
+<br/><br/>
+
 # Milestones
 
 ## **Milestone 1 : build and launch liquidity MVP on the Hub**
@@ -124,6 +126,8 @@ Swap execution process : universal swap ratio for all swap requests
 ### 2) Generalized zk-rollup module implementation, funded by ICF
 
 ### 3) zk-DeX zone supported by Hub zk-rollup with privacy-preserving feature
+
+<br/><br/>
 
 # Budget
 
