@@ -24,7 +24,7 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 
 ### 1) Liquidity module implementation
 
-`**LiquidityPool` creation**
+**`LiquidityPool` creation**
 
 - Perminssionless
 - Unique pool for each token pair
@@ -32,7 +32,7 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 - `MinPoolCreateAmt`(in Atom) : minimum amount of tokens for successful `LiquidityPool` creation
 - `PoolToken` creation upon creation of a `LiquidityPool`
 
-`**LiquidityPool` deposit/withdrawal**
+**`LiquidityPool` deposit/withdrawal**
 
 - `PoolToken` minting(deposit) and burning(withdrawal)
 - Transferable `PoolToken` : ownership belongs to the `PoolToken` owner
