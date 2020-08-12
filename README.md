@@ -6,9 +6,13 @@ The liquidity module lets the Hub to possess complete backend utility-flow of si
 
 While general structure of the implementation comes from Uniswap, we customize several designs to improve economic incentive system, provide better user experience, and fit in existing Cosmos-SDK environment.
 
+<br/><br/>
+
 ## **Sustainable Liquidity Service for the Hub**
 
 We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded by this liquidity module v1, but we hope to invest our energy fully to maintain, grow, improve and expand utilities in a much longer time scale to provide the best liquidity utility for the entire blockchain ecosystem.
+
+<br/><br/>
 
 # Milestones
 
@@ -80,6 +84,8 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 - Keplr integration for signing transactions
 - Web explorer to view basic liquidity status and transactions
 
+<br/><br/>
+
 ## **Milestone 2 : ongoing maintainance and operation**
 
 ### 1) Testnet Operation
@@ -105,6 +111,8 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 - Allow nano-ledger integration on web interface
 - Expand information on web explorer to include various statistics on the Hub Liquidity Playground
 
+<br/><br/>
+
 ## Further Roadmap Outside the Scope of This Project
 
 ### 1) Continuous management of liquidity utility on the Hub
@@ -123,6 +131,8 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 ### 2) Generalized zk-rollup module implementation, funded by ICF
 
 ### 3) zk-DeX zone supported by Hub zk-rollup with privacy-preserving feature
+
+<br/><br/>
 
 # Budget
 
