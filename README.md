@@ -1,11 +1,11 @@
 # Introduction
-
+<br/><br/>
 ## **The Liquidity Module**
 
 The liquidity module lets the Hub to possess complete backend utility-flow of simple AMM(Automated Market Makers) functionality for liquidity providers and swap requestors.
 
 While general structure of the implementation comes from Uniswap, we customize several designs to improve economic incentive system, provide better user experience, and fit in existing Cosmos-SDK environment.
-
+<br/><br/>
 ## **Sustainable Liquidity Service for the Hub**
 
 We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded by this liquidity module v1, but we hope to invest our energy fully to maintain, grow, improve and expand utilities in a much longer time scale to provide the best liquidity utility for the entire blockchain ecosystem.
@@ -13,7 +13,7 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 <br/><br/>
 
 # Milestones
-
+<br/><br/>
 ## **Milestone 1 : build and launch liquidity MVP on the Hub**
 
 ### 1) Liquidity module implementation
@@ -83,7 +83,7 @@ Swap execution process : universal swap ratio for all swap requests
 - Web interface for liquidity pool deposit/withdraw and swap request
 - Keplr integration for signing transactions
 - Web explorer to view basic liquidity status and transactions
-
+<br/><br/>
 ## **Milestone 2 : ongoing maintainance and operation**
 
 ### 1) Testnet Operation
@@ -116,7 +116,7 @@ Swap execution process : universal swap ratio for all swap requests
 - Apply new passive swap request option into the web interface
 - Allow nano-ledger integration on web interface
 - Expand information on web explorer to include various statistics on the Hub Liquidity Playground
-
+<br/><br/>
 ## Further Roadmap Outside the Scope of This Project
 
 ### 1) Continuous management of liquidity utility on the Hub
