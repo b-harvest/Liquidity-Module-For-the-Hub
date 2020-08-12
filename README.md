@@ -37,13 +37,11 @@ Swap request to a `LiquidityPool`
     - `MaxSwapPrice` : the swap request canceled if executable swap price exceeds `MaxSwapPrice`
     - `MaxSwapAmtPercent`(%) : the swap request failed if requested swap amount exceeds `MaxSwapAmtPercent`(%) of the `LiquidityPool` amount
 
-Fee and tax
+Fee
 
 - Swap fee
     - `SwapFeeRate`(%) of total executed swap amounts are payed by the swap requestor.
         - it is accumulated in the `LiquidityPool` where the swap requestor consumed liquidity from
-- Swap tax
-    - `SwapTaxRate`(%) of total executed swap amounts are payed and accumulated in `LiquidityDAOFund`
 
 Swap execution process : universal swap ratio for all swap requests
 
@@ -51,17 +49,20 @@ Swap execution process : universal swap ratio for all swap requests
     - `ExpSwapUnitPrice`: initial expectation of swap unit price
 2. Calculate `SelfMatchedSwapAmt` using `ExpSwapUnitPrice` 
     - maximum amount of swap which can be swapped each other without consuming liquidity pool
-    - substract tax only from swap amounts : these swaps do not pay fee to liquidity pool because it does not consume liquidity from liquidity pool
+    - these swaps do not pay fee to liquidity pool because it does not consume liquidity from liquidity pool
 3. Calculate `NetRemainingSwapAmt`
     - remaining swap amount after removing self matched swaps
-    - substract tax and fee payable from swap amounts : these swaps should consume liquidity pool to be executed
+    - substract fee payable from swap amounts : these swaps should consume liquidity pool to be executed
 4. Calculate `ExpSwapUnitPrice`
     - assume `NetRemainingSwapAmt` is A token (vice versa for B token case)
     - `ExpSwapAmt` = (`NetRemainingSwapAmt` * `PoolAmt_BToken`) / (`PoolAmt_AToken`+`NetRemainingSwapAmt`)
         - this formula is derived from constant product equation of Uniswap
     - `ExpSwapUnitPrice` = `ExpSwapAmt` / `NetRemainingSwapAmt`
 5. Remove swap requests which violate `MaxSwapPrice` constraints at `ExpSwapUnitPrice`
-6. Recalculate `ExpSwapUnitPrice` from step 2 and define it as `FinalSwapUnitPrice`
+6. Iteration of `ExpSwapUnitPrice` calculation
+    - recalculate `ExpSwapUnitPrice` from step 2 and define it as new `ExpSwapUnitPrice`
+    - iterate this process until we have no additional violation of `MaxSwapPrice` constraint
+    - define final `ExpSwapUnitPrice` as `FinalSwapUnitPrice`
 7. Calculate `SelfMatchedSwapRatio` for A token and B token
     - `SelfMatchedSwapRatio_AToken` = `SelfMatchedSwapAmt` / (`SelfMatchedSwapAmt` + `NetRemainingSwapAmt`)
     - `SelfMatchedSwapRatio_BToken` = `SelfMatchedSwapRatio` / `SelfMatchedSwapRatio` = 1
@@ -74,8 +75,8 @@ Swap execution process : universal swap ratio for all swap requests
     - for each swap
         - swap requestors send A tokens to liquidity pool
         - liquidity pool sends B tokens to each swap requestor using `FinalSwapUnitPrice`
-10. Transfer fee and tax
-    - transfer all fees to the `LiquidityPool` , all tax to the `LiquidityDAOFund`
+10. Transfer fee
+    - transfer all fees to the `LiquidityPool`
 
 ### 2) Frontend Interface
 
@@ -95,12 +96,20 @@ Swap execution process : universal swap ratio for all swap requests
 - Quickly comply with bugs, issues, PR, and minor fixes for better stability
 - Organize community discussion channel to discuss about liquidity module enhancement
 
-### 3) Liquidity Module Enhancement : Passive Swap Request
+### 3) Liquidity Module Enhancements
+
+(Optional, depends on community governace) Passive Swap Request
 
 - New swap request type "passive" introduced (Original swap requests become "immediate" type)
 - Passive swap requests are executable only if there exists remaining available swap requests(immediate or passive)
-    - passive swap requests immediately canceled when there exists no available swap requests to be matched
+    - passive swap requests entered into passive swap queue when there exists no available swap requests to be matched
+    - queued passive swap requests will try to be executed for next block
+    - queued passive swap requests can be canceled from the orderer
     - passive swap requests do not consume liquidity from liquidity pool → no swap fee to liquidity pool
+
+(Optional, depends on community governace) Swap tax
+
+- `SwapTaxRate`(%) of total executed swap amounts are payed and accumulated in `LiquidityDAOFund`
 
 ### 4) Advanced Frontend
 
