@@ -1,5 +1,7 @@
 # Introduction
 
+<br/><br/>
+
 ## **The Liquidity Module**
 
 The liquidity module lets the Hub to possess complete backend utility-flow of simple AMM(Automated Market Makers) functionality for liquidity providers and swap requestors.
@@ -15,6 +17,8 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 <br/><br/>
 
 # Milestones
+
+<br/><br/>
 
 ## **Milestone 1 : build and launch liquidity MVP on the Hub**
 
@@ -135,6 +139,8 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 <br/><br/>
 
 # Budget
+
+<br/><br/>
 
 ### **Milestone 1 : build and launch liquidity pool MVP on the Hub**
 
