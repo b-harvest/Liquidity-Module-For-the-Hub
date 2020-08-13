@@ -5,13 +5,11 @@
 The liquidity module lets the Hub to possess complete backend utility-flow of simple AMM(Automated Market Makers) functionality for liquidity providers and swap requestors.
 
 While general structure of the implementation comes from Uniswap, we customize several designs to improve economic incentive system, provide better user experience, and fit in existing Cosmos-SDK environment.
-<br/><br/>
+
 ## **Sustainable Liquidity Service for the Hub**
 
 We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded by this liquidity module v1, but we hope to invest our energy fully to maintain, grow, improve and expand utilities in a much longer time scale to provide the best liquidity utility for the entire blockchain ecosystem.
-
 <br/><br/>
-
 # Milestones
 <br/><br/>
 ## **Milestone 1 : build and launch liquidity MVP on the Hub**
@@ -78,7 +76,7 @@ Swap execution process : universal swap ratio for all swap requests
 10. Transfer fee
     - transfer all fees to the `LiquidityPool`
 
-### 2) Frontend Interface
+### 2) Frontend Interface (By AiB)
 
 - Web interface for liquidity pool deposit/withdraw and swap request
 - Keplr integration for signing transactions
@@ -111,11 +109,10 @@ Swap execution process : universal swap ratio for all swap requests
 
 - `SwapTaxRate`(%) of total executed swap amounts are payed and accumulated in `LiquidityDAOFund`
 
-### 4) Advanced Frontend
+### 4) Advanced Frontend (By AiB)
 
 - Apply new passive swap request option into the web interface
 - Allow nano-ledger integration on web interface
-- Expand information on web explorer to include various statistics on the Hub Liquidity Playground
 <br/><br/>
 ## Further Roadmap Outside the Scope of This Project
 
@@ -135,21 +132,23 @@ Swap execution process : universal swap ratio for all swap requests
 ### 2) Generalized zk-rollup module implementation, funded by ICF
 
 ### 3) zk-DeX zone supported by Hub zk-rollup with privacy-preserving feature
-
 <br/><br/>
-
 # Budget
+
+B-Harvest will provide draft UX planning to AiB so that AiB can build the frontend and web design. 
+
+We will also provide any necessary backend kit to AiB for implementing frontend.
 
 ### **Milestone 1 : build and launch liquidity pool MVP on the Hub**
 
 - Period : 4 months
-- Participants : 1 spec/doc, 2 backend, 1 frontend, 1 UI design
-- Cost : $10K/month per person
-- Budget : 4months * 5pp * $10K = $200K
+- Participants : 1 spec/doc, 2 backend, 1 UX planning
+- Cost : $10K/month per person($5K/month for UX planning)
+- Budget : 4months * (3pp * $10K + 1pp * $5K) = $140K
 
-### **Milestone 2 : ongoing maintainance and operation**
+### **Milestone 2 : liquidity module upgrade, ongoing maintainance and operation**
 
 - Period : 6 months
-- Participants : 1 community management, 2 backend, 1 frontend, 1 UI design
+- Participants : 1 spec/doc/community, 2 backend
 - Cost : $5K/month per person
-- Budget : 6months * 5pp * $5K = $150K
+- Budget : 6months * 3pp * $5K = $90K
