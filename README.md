@@ -85,7 +85,7 @@ Fee
     - `LiquidityFeeRate`(%) of total executed swap amounts are payed by the pool-matched swaps
     - it is accumulated in the `LiquidityPool` where the swap happens
 - Pool withdraw fee
-    - `PoolWithdrawFeeRate`(%) of total withdrawn pool assets are payed to `LiquidityDAOFund`
+    - `PoolWithdrawFeeRate`(%) of total withdrawn pool assets are payed to `LiquidityFund`
 
 <br/>
 
@@ -218,7 +218,7 @@ Stable VS Stable Pool
 
 Swap tax (Optional, depends on community governace)
 
-- `SwapTaxRate`(%) of total executed swap amounts are payed and accumulated in `LiquidityDAOFund`
+- `SwapTaxRate`(%) of total executed swap amounts are payed and accumulated in `LiquidityFund`
 
 <br/>
 
