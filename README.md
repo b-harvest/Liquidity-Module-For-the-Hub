@@ -1,5 +1,5 @@
 # Introduction
-<br/><br/>
+
 ## **The Liquidity Module**
 
 The liquidity module lets the Hub to possess complete backend utility-flow of simple AMM(Automated Market Makers) functionality for liquidity providers and swap requestors.
@@ -9,9 +9,30 @@ While general structure of the implementation comes from Uniswap, we customize s
 ## **Sustainable Liquidity Service for the Hub**
 
 We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded by this liquidity module v1, but we hope to invest our energy fully to maintain, grow, improve and expand utilities in a much longer time scale to provide the best liquidity utility for the entire blockchain ecosystem.
-<br/><br/>
+
+## Special Characteristics of the Liquidity Module
+
+**1) Universal Swap Price** : All swaps in one batch are executed with one universal swap price
+
+- tx ordering in a block doesn't matter!
+
+**2) Max Swap Price** : Swap requestors can protect themselves from swap execution with significantly higher price
+
+**3) Self-Matched Swap** : Self-matched swaps without consuming liquidity pool pay less fee than pool-matched swaps
+
+- better fair-game for swap users
+
+**4) Passive Swap** : New type of swap which does not consume liquidity from the pool
+
+- providing instant liquidity to the swap market to absorb big swap orders
+
+**5) Dynamic Batch Size** : Extended period of batch size only when significant swap price movement happens
+
+- gives more time for arbitrageurs to participate with passive swap so that they can absorb big swap orders
+- in most cases with non-significant swap price movement, it provides one block execution
+
 # Milestones
-<br/><br/>
+
 ## **Milestone 1 : build and launch liquidity MVP on the Hub**
 
 ### 1) Liquidity module implementation
@@ -21,8 +42,8 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 - Perminssionless
 - Unique pool for each token pair
 - `BaseToken` : at least one of the token pair should be an element of `BaseTokenList`
-- `MinPoolCreateAmt`(in Atom) : minimum amount of tokens for successful `LiquidityPool` creation
-- `PoolToken` creation upon creation of a `LiquidityPool`
+- `PoolCreationPrice`(in Atom) : to create a `LiquidityPool` , one needs to pay `PoolCreationPrice`
+- `PoolToken` creation upon creation of a `LiquidityPool` : representing ownership of shares of a `LiquidityPool`
 
 `LiquidityPool` deposit/withdrawal
 
@@ -32,56 +53,89 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 Swap request to a `LiquidityPool`
 
 - Safety features
-    - `MaxSwapPrice` : the swap request canceled if executable swap price exceeds `MaxSwapPrice`
+    - `MaxSwapPrice` : the swap request cancelled if executable swap price exceeds `MaxSwapPrice`
+        - `MaxSwapPriceAtoB` : `MaxSwapPrice` for swap request from `TokenA` to `TokenB`
+        - `MaxSwapPriceBtoA` : `MaxSwapPrice` for swap request from `TokenB` to `TokenA`
     - `MaxSwapAmtPercent`(%) : the swap request failed if requested swap amount exceeds `MaxSwapAmtPercent`(%) of the `LiquidityPool` amount
 
 Fee
 
 - Swap fee
-    - `SwapFeeRate`(%) of total executed swap amounts are payed by the swap requestor.
-        - it is accumulated in the `LiquidityPool` where the swap requestor consumed liquidity from
+    - `SwapFeeRate`(%) of total executed swap amounts are payed by all matched swaps
+    - `LiquidityFeeRate`(%) of total executed swap amounts are payed by the pool-matched swaps
+    - it is accumulated in the `LiquidityPool` where the swap happens
+- Pool withdraw fee
+    - `PoolWithdrawFeeRate`(%) of total withdrawn pool assets are payed to `LiquidityDAOFund`
 
-Swap execution process : universal swap ratio for all swap requests
+Swap execution : universal swap ratio for all swap requests
 
-1. Let `ExpSwapUnitPrice` = `LastSwapUnitPrice`
-    - `ExpSwapUnitPrice`: initial expectation of swap unit price
-2. Calculate `SelfMatchedSwapAmt` using `ExpSwapUnitPrice` 
-    - maximum amount of swap which can be swapped each other without consuming liquidity pool
-    - these swaps do not pay fee to liquidity pool because it does not consume liquidity from liquidity pool
-3. Calculate `NetRemainingSwapAmt`
-    - remaining swap amount after removing self matched swaps
-    - substract fee payable from swap amounts : these swaps should consume liquidity pool to be executed
-4. Calculate `ExpSwapUnitPrice`
-    - assume `NetRemainingSwapAmt` is A token (vice versa for B token case)
-    - `ExpSwapAmt` = (`NetRemainingSwapAmt` * `PoolAmt_BToken`) / (`PoolAmt_AToken`+`NetRemainingSwapAmt`)
-        - this formula is derived from constant product equation of Uniswap
-    - `ExpSwapUnitPrice` = `ExpSwapAmt` / `NetRemainingSwapAmt`
-5. Remove swap requests which violate `MaxSwapPrice` constraints at `ExpSwapUnitPrice`
-6. Iteration of `ExpSwapUnitPrice` calculation
-    - recalculate `ExpSwapUnitPrice` from step 2 and define it as new `ExpSwapUnitPrice`
-    - iterate this process until we have no additional violation of `MaxSwapPrice` constraint
-    - define final `ExpSwapUnitPrice` as `FinalSwapUnitPrice`
-7. Calculate `SelfMatchedSwapRatio` for A token and B token
-    - `SelfMatchedSwapRatio_AToken` = `SelfMatchedSwapAmt` / (`SelfMatchedSwapAmt` + `NetRemainingSwapAmt`)
-    - `SelfMatchedSwapRatio_BToken` = `SelfMatchedSwapRatio` / `SelfMatchedSwapRatio` = 1
-8. Execute self matchable swaps
-    - for each swap
-        - self matchable swap amount offering A token = original swap amount * `SelfMatchedSwapRatio_AToken`
-        - self matchable swap amount offering B token = original swap amount
-    - using `FinalSwapUnitPrice`, matchable swaps transfer A token and B token each other
-9. Execute remaining unmatched swaps
-    - for each swap
-        - swap requestors send A tokens to liquidity pool
-        - liquidity pool sends B tokens to each swap requestor using `FinalSwapUnitPrice`
-10. Transfer fee
-    - transfer all fees to the `LiquidityPool`
+- Basic concept
+    - every swap request seen as a bid/ask limit order with order price `MaxSwapPriceAtoB`
+    - unit swap price
+        - `UnitSwapPriceAtoB` : unit swap price of B from A
+        - `UnitSwapPriceBtoA` : unit swap price of A from B
+        - `UnitSwapPriceAtoB` = 1/`UnitSwapPriceBtoA`
+        - this is our ultimate goal to be calculated in swap execution process
+    - self-matching
+        - one side of swap requests will be completely self-matched with the other side of swap requests with `UnitSwapPrice`, which is not calculated yet
+            - `SelfMatchedSwapAmtTokenA` : total amount of self-matched swap amount in `TokenA`
+            - `SelfMatchedSwapAmtTokenB` : total amount of self-matched swap amount in `TokenB`
+            - `SelfMatchedSwapAmtTokenA` = `SelfMatchedSwapAmtTokenB` * `UnitSwapPriceBtoA`
+            - remaining swap amount : the remaining swap request amount which is not self-matched
+                - `RemainingA` : remaining swap amount of `TokenA`
+                - `RemainingB` : remaining swap amount of `TokenB`
+    - constant product equation(CDE)
+        - `PoolA` * `PoolB` = ( `PoolA` + `RemainingA` - `RemainingB` * `UnitSwapPriceBtoA` ) * ( `PoolB` + `RemainingB` - `RemainingA` * `UnitSwapPriceAtoB` )
+        - `CDEDev` : deviation between left side and right side of CDE (absolute value)
+    - pool-matching
+        - subset of `RemainingA` or `RemainingB` are matched by pool from calculated `UnitSwapPriceAtoB`
+            - pool only can match `RemainingA` with `MaxSwapPrice` ≥ `UnitSwapPriceAtoB`
+            - pool only can match `RemainingB` with `MaxSwapPrice` ≥ `UnitSwapPriceBtoA`
+- Finding `UnitSwapPriceAtoB` : to find `UnitSwapPriceAtoB` which results in smallest `CDEDev`
+
+    1) sort swap requests with `UniSwapPriceAtoB`
+
+    2) let `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
+
+    - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
+
+    3) let `UnitSwapPriceAtoB` = lowest `MaxSwapPriceAtoB` which is higher than `LastSwapPriceAtoB`
+
+    - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
+        - if it decreases from 2)
+            - iterate 3) with next lowest `MaxSwapPriceAtoB` until `CDEDev` increases
+                - final `UnitSwapPriceAtoB` = the last `MaxSwapPriceAtoB` where `CDEDev` decreases
+                - calculate the exact portion of pool-matched amount for the swaps with final `UnitSwapPriceAtoB` so that `CDEDev` becomes zero
+                - done
+        - if it increases from 2)
+            - go to 4)
+
+    4) let `UnitSwapPriceBtoA` = highest `MaxSwapPriceAtoB` which is lower than `LastSwapPriceAtoB`
+
+    - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
+        - if it decreases from 2)
+            - iterate 4) with next highest `MaxSwapPriceAtoB` until `CDEDev` increases
+                - final `UnitSwapPriceAtoB` = the last `MaxSwapPriceAtoB` where `CDEDev` decreases
+                - calculate the exact portion of pool-matched amount for the swaps with final `UnitSwapPriceAtoB` so that `CDEDev` becomes zero
+                - done
+        - if it increases from 2)
+            - `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
+
+    5) fee deduction
+
+    - every self-matched swaps pay `SwapFeeRate`(%) of executed swap amount
+    - every pool-matched swaps pay `SwapFeeRate`(%)+`LiquidityFeeRate`(%)  of executed swap amount
+
+    6) swap execution
+
+    - all matchable swap requests are executed and unmatched swap requests are removed
 
 ### 2) Frontend Interface (By AiB)
 
 - Web interface for liquidity pool deposit/withdraw and swap request
 - Keplr integration for signing transactions
 - Web explorer to view basic liquidity status and transactions
-<br/><br/>
+
 ## **Milestone 2 : ongoing maintainance and operation**
 
 ### 1) Testnet Operation
@@ -96,16 +150,26 @@ Swap execution process : universal swap ratio for all swap requests
 
 ### 3) Liquidity Module Enhancements
 
-(Optional, depends on community governace) Passive Swap Request
+Passive Swap
 
 - New swap request type "passive" introduced (Original swap requests become "immediate" type)
 - Passive swap requests are executable only if there exists remaining available swap requests(immediate or passive)
     - passive swap requests entered into passive swap queue when there exists no available swap requests to be matched
     - queued passive swap requests will try to be executed for next block
-    - queued passive swap requests can be canceled from the orderer
-    - passive swap requests do not consume liquidity from liquidity pool → no swap fee to liquidity pool
+    - queued passive swap requests can be canceled from the origin of the order
+    - passive swap requests do not consume liquidity from liquidity pool
+    - passive swap requests do not pay swap fee nor liquidity fee
 
-(Optional, depends on community governace) Swap tax
+Dynamic Batch Size
+
+- Extended number of blocks for a batch when the swap price changes more than `BatchTriggerPriceChange`(%)
+- When batch extension happens, orders are accumulated for `ExtendedBatchSize` number of blocks before swap execution
+
+Stable VS Stable Pool
+
+- Different swap price function and fee rate for stable vs stable pool
+
+Swap tax (Optional, depends on community governace)
 
 - `SwapTaxRate`(%) of total executed swap amounts are payed and accumulated in `LiquidityDAOFund`
 
@@ -113,12 +177,12 @@ Swap execution process : universal swap ratio for all swap requests
 
 - Apply new passive swap request option into the web interface
 - Allow nano-ledger integration on web interface
-<br/><br/>
+
 ## Further Roadmap Outside the Scope of This Project
 
 ### 1) Continuous management of liquidity utility on the Hub
 
-**Continuous version upgrades for liquidity module and frontend interfaces**
+**Continuous version upgrades for liquidity module**
 
 - to improve user experience
 - to expand liquidity utilities via IBC
@@ -132,7 +196,7 @@ Swap execution process : universal swap ratio for all swap requests
 ### 2) Generalized zk-rollup module implementation, funded by ICF
 
 ### 3) zk-DeX zone supported by Hub zk-rollup with privacy-preserving feature
-<br/><br/>
+
 # Budget
 
 B-Harvest will provide draft UX planning to AiB so that AiB can build the frontend and web design. 
