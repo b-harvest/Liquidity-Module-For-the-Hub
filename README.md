@@ -93,6 +93,8 @@ Swap execution : universal swap ratio for all swap requests
             - pool only can match `RemainingB` with `MaxSwapPrice` ≥ `UnitSwapPriceBtoA`
 - Finding `UnitSwapPriceAtoB` : to find `UnitSwapPriceAtoB` which results in smallest `CDEDev`
 
+![swap_execution](https://user-images.githubusercontent.com/38277329/90895675-79ec9400-e3fd-11ea-8114-b807ededa913.png)
+
     1) sort swap requests with `UniSwapPriceAtoB`
 
     2) let `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
