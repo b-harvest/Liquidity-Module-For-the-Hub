@@ -37,7 +37,7 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 - gives more time for arbitrageurs to participate with passive swap so that they can absorb big swap orders
 - in most cases with non-significant swap price movement, it provides one block execution
 
-**6) Alternative Swap Function for Stable vs Stable Pool
+**6) Alternative Swap Function for Stable vs Stable Pool**
 
 <br/><br/>
 
