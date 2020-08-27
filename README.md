@@ -348,7 +348,7 @@ Swap tax (Optional, depends on community governace)
 
 <br/>
 
-- Total budget : $95K + $60K + $75K
+- Total budget : $95K + $60K + $75K = $230K
 - Each milestone can be continued under reasonable quality of deliverable on each milestone
 - Each budget is paid upon completion of each milestone
 
