@@ -1,3 +1,9 @@
+modified 2020-08-27
+
+- break down 2 milestones to 3 milestone with rebase work for stargate
+- adjust budget for 3 milestones(no change on total budget)
+- add milestone continuation condition and payment timing
+
 # Introduction
 
 <br/>
@@ -45,7 +51,7 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 
 <br/>
 
-## **Milestone 1 : build and launch liquidity MVP on the Hub**
+## **Milestone 1 : Liquidity module PoC on current Cosmos-SDK version**
 
 <br/>
 
@@ -59,6 +65,7 @@ We want to emphasize that B-Harvest's vision on Cosmos Liquidity is not bounded 
 - Unique pool for each token pair
 - `BaseToken` : at least one of the token pair should be an element of `BaseTokenList`
 - `PoolCreationPrice`(in Atom) : to create a `LiquidityPool` , one needs to pay `PoolCreationPrice`
+    - Paid Atoms are sent to `LiquidityFund`
 - `PoolToken` creation upon creation of a `LiquidityPool` : representing ownership of shares of a `LiquidityPool`
 
 <br/>
@@ -87,7 +94,8 @@ Fee
     - `LiquidityFeeRate`(%) of total executed swap amounts are payed by the pool-matched swaps
     - it is accumulated in the `LiquidityPool` where the swap happens
 - Pool withdraw fee
-    - `PoolWithdrawFeeRate`(%) of total withdrawn pool assets are payed to `LiquidityFund`
+    - `PoolWithdrawFeeRate`(%) of total withdrawn pool assets are payed to the `LiquidityPool`
+    - this is a spam prevention methods to prevent too frequent deposits/withdrawals
 
 <br/>
 
@@ -117,53 +125,91 @@ Swap execution : universal swap ratio for all swap requests
         - subset of `RemainingA` or `RemainingB` are matched by pool from calculated `UnitSwapPriceAtoB`
             - pool only can match `RemainingA` with `MaxSwapPrice` ≥ `UnitSwapPriceAtoB`
             - pool only can match `RemainingB` with `MaxSwapPrice` ≥ `UnitSwapPriceBtoA`
-            
+
 <br/>
 
 - Finding `UnitSwapPriceAtoB` : to find `UnitSwapPriceAtoB` which results in smallest `CDEDev`
 
-![swap_execution](https://user-images.githubusercontent.com/38277329/90895675-79ec9400-e3fd-11ea-8114-b807ededa913.png)
+![https://user-images.githubusercontent.com/38277329/90895675-79ec9400-e3fd-11ea-8114-b807ededa913.png](https://user-images.githubusercontent.com/38277329/90895675-79ec9400-e3fd-11ea-8114-b807ededa913.png)
 
-  1) sort swap requests with `UniSwapPriceAtoB`
-
-  2) let `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
-
-  - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
-
-  3) let `UnitSwapPriceAtoB` = lowest `MaxSwapPriceAtoB` which is higher than `LastSwapPriceAtoB`
-
-  - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
-      - if it decreases from 2)
-          - iterate 3) with next lowest `MaxSwapPriceAtoB` until `CDEDev` increases
-              - final `UnitSwapPriceAtoB` = the last `MaxSwapPriceAtoB` where `CDEDev` decreases
-              - calculate the exact portion of pool-matched amount for the swaps with final `UnitSwapPriceAtoB` so that `CDEDev` becomes zero
-              - done
-      - if it increases from 2)
-          - go to 4)
-
-  4) let `UnitSwapPriceBtoA` = highest `MaxSwapPriceAtoB` which is lower than `LastSwapPriceAtoB`
-
-  - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
-      - if it decreases from 2)
-          - iterate 4) with next highest `MaxSwapPriceAtoB` until `CDEDev` increases
-              - final `UnitSwapPriceAtoB` = the last `MaxSwapPriceAtoB` where `CDEDev` decreases
-              - calculate the exact portion of pool-matched amount for the swaps with final `UnitSwapPriceAtoB` so that `CDEDev` becomes zero
-              - done
-      - if it increases from 2)
-          - `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
-
-  5) fee deduction
-
-  - every self-matched swaps pay `SwapFeeRate`(%) of executed swap amount
-  - every pool-matched swaps pay `SwapFeeRate`(%)+`LiquidityFeeRate`(%)  of executed swap amount
-
-  6) swap execution
-
-  - all matchable swap requests are executed and unmatched swap requests are removed
+1. sort swap requests with `UniSwapPriceAtoB`
+2. let `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
+- calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
+1. let `UnitSwapPriceAtoB` = lowest `MaxSwapPriceAtoB` which is higher than `LastSwapPriceAtoB`
+- calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
+    - if it decreases from 2)
+        - iterate 3) with next lowest `MaxSwapPriceAtoB` until `CDEDev` increases
+            - final `UnitSwapPriceAtoB` = the last `MaxSwapPriceAtoB` where `CDEDev` decreases
+            - calculate the exact portion of pool-matched amount for the swaps with final `UnitSwapPriceAtoB` so that `CDEDev` becomes zero
+            - done
+    - if it increases from 2)
+        - go to 4)
+1. let `UnitSwapPriceBtoA` = highest `MaxSwapPriceAtoB` which is lower than `LastSwapPriceAtoB`
+- calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
+    - if it decreases from 2)
+        - iterate 4) with next highest `MaxSwapPriceAtoB` until `CDEDev` increases
+            - final `UnitSwapPriceAtoB` = the last `MaxSwapPriceAtoB` where `CDEDev` decreases
+            - calculate the exact portion of pool-matched amount for the swaps with final `UnitSwapPriceAtoB` so that `CDEDev` becomes zero
+            - done
+    - if it increases from 2)
+        - `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
+1. fee deduction
+- every self-matched swaps pay `SwapFeeRate`(%) of executed swap amount
+- every pool-matched swaps pay `SwapFeeRate`(%)+`LiquidityFeeRate`(%) of executed swap amount
+1. swap execution
+- all matchable swap requests are executed and unmatched swap requests are removed
 
 <br/>
 
-### 2) Frontend Interface (By AiB)
+### 2) Test codes
+
+- Provides test codes for each unit functionality to be used for verification
+
+<br/>
+
+### 3) Documentation
+
+- Complete spec documentation of the implementation and its reasoning
+- Documents for testing procedure
+- A complete mathematical guide documentation which explains whole computation processes
+- Provide AiB frontend integration guide documentation for web interface implementation
+
+<br/>
+
+## **Milestone 2 : Production-level implementation of Milestone 1 on Cosmos-SDK stargate version**
+
+<br/>
+
+### 1) Improve and Rebase Codebase to Production-level / Stargate Version
+
+- Improve codebase to production-level
+- Adjust codebase aligned with modified spec during implementation process in Milestone 1
+- Rebase codebase to Cosmos-SDK stargate version
+
+<br/>
+
+### 2) Testnet Operation and Debugging
+
+- Operate testnets with multiple blockchains to test liquidity module utility with ibc-transfered tokens
+- Invite community members on testnets to accelerate debugging process
+- Deal with issues and pull requests on the repository from AiB crews or other community members
+
+<br/>
+
+### 3) Test Codes for Entire Utility Flow of Liquidity Module Implementation
+
+- Provide simple web interface for entire utility flow testing of liquidity module
+- Encourage community to participate on testing via web interface
+
+<br/>
+
+### 4) Improve Documentations
+
+- Add up and improve documents for spec, testing, and mathematical explanation
+
+<br/>
+
+### 5) Frontend Interface (By AiB)
 
 - Web interface for liquidity pool deposit/withdraw and swap request
 - Keplr integration for signing transactions
@@ -171,7 +217,7 @@ Swap execution : universal swap ratio for all swap requests
 
 <br/>
 
-## **Milestone 2 : ongoing maintainance and operation**
+## **Milestone 3 : Liquidity module enhancement and maintainance**
 
 <br/>
 
@@ -184,7 +230,7 @@ Swap execution : universal swap ratio for all swap requests
 
 ### 2) Liquidity Module Maintainance
 
-- Quickly comply with bugs, issues, PR, and minor fixes for better stability
+- Quickly comply with bugs, issues, PR, and minor fixes for better stability and security
 - Organize community discussion channel to discuss about liquidity module enhancement
 
 <br/>
@@ -214,7 +260,7 @@ Dynamic Batch Size
 
 Stable VS Stable Pool
 
-- Different swap price function and fee rate for stable vs stable pool
+- Different swap price function(constant sum function) and fee rate for stable vs stable pool
 
 <br/>
 
@@ -262,24 +308,33 @@ Swap tax (Optional, depends on community governace)
 
 <br/>
 
-B-Harvest will provide draft UX planning to AiB so that AiB can build the frontend and web design. 
-
-We will also provide any necessary backend kit to AiB for implementing frontend.
+- Total budget : $95K + $60K + $75K
+- Each milestone can be continued under reasonable quality of deliverable on each milestone
+- Each budget is paid upon completion of each milestone
 
 <br/>
 
-### **Milestone 1 : build and launch liquidity pool MVP on the Hub**
+### **Milestone 1 : Liquidity module PoC on current Cosmos-SDK version**
 
-- Period : 4 months
-- Participants : 1 spec/doc, 2 backend, 1 UX planning
+- Period : 3 months
+- Participants : 1 spec/doc, 2 backend, 1 UX and frontend support(1 month)
 - Cost : $10K/month per person($5K/month for UX planning)
-- Budget : 4months * (3pp * $10K + 1pp * $5K) = $140K
+- Budget : 3months * (3pp * $10K) + 1month * (1pp * $5K) = $95K
 
 <br/>
 
-### **Milestone 2 : liquidity module upgrade, ongoing maintainance and operation**
+### **Milestone 2 : Production-level implementation of Milestone 1 on Cosmos-SDK stargate version**
 
-- Period : 6 months
+- Period : 2 months
+- Participants : 1 spec/doc, 2 backend
+- Cost : $10K/month per person($5K/month for UX planning)
+- Budget : 2months * (3pp * $10K) = $60K
+
+<br/>
+
+### **Milestone 3 : Liquidity module enhancement and maintainance**
+
+- Period : 5 months
 - Participants : 1 spec/doc/community, 2 backend
 - Cost : $5K/month per person
-- Budget : 6months * 3pp * $5K = $90K
+- Budget : 5months * 3pp * $5K = $75K
