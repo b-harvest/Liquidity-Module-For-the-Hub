@@ -3,6 +3,7 @@ modified 2020-08-27
 - break down 2 milestones to 3 milestone with rebase work for stargate
 - adjust budget for 3 milestones(no change on total budget)
 - add milestone continuation condition and payment timing
+- add detailed schedule
 
 <br/>
 
@@ -137,7 +138,7 @@ Swap execution : universal swap ratio for all swap requests
 1. sort swap requests with `UniSwapPriceAtoB`
 2. let `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
 - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
-1. let `UnitSwapPriceAtoB` = lowest `MaxSwapPriceAtoB` which is higher than `LastSwapPriceAtoB`
+3. let `UnitSwapPriceAtoB` = lowest `MaxSwapPriceAtoB` which is higher than `LastSwapPriceAtoB`
 - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
     - if it decreases from 2)
         - iterate 3) with next lowest `MaxSwapPriceAtoB` until `CDEDev` increases
@@ -146,7 +147,7 @@ Swap execution : universal swap ratio for all swap requests
             - done
     - if it increases from 2)
         - go to 4)
-1. let `UnitSwapPriceBtoA` = highest `MaxSwapPriceAtoB` which is lower than `LastSwapPriceAtoB`
+4. let `UnitSwapPriceBtoA` = highest `MaxSwapPriceAtoB` which is lower than `LastSwapPriceAtoB`
 - calculate `CDEDev` by processing matching with given `UnitSwapPriceAtoB`
     - if it decreases from 2)
         - iterate 4) with next highest `MaxSwapPriceAtoB` until `CDEDev` increases
@@ -155,10 +156,10 @@ Swap execution : universal swap ratio for all swap requests
             - done
     - if it increases from 2)
         - `UnitSwapPriceAtoB` = `LastSwapPriceAtoB`
-1. fee deduction
+5. fee deduction
 - every self-matched swaps pay `SwapFeeRate`(%) of executed swap amount
 - every pool-matched swaps pay `SwapFeeRate`(%)+`LiquidityFeeRate`(%) of executed swap amount
-1. swap execution
+6. swap execution
 - all matchable swap requests are executed and unmatched swap requests are removed
 
 <br/>
@@ -276,6 +277,39 @@ Swap tax (Optional, depends on community governace)
 
 - Apply new passive swap request option into the web interface
 - Allow nano-ledger integration on web interface
+
+<br/><br/>
+
+## Detail Timeline
+
+<br/>
+
+### Milestone 1 (1st~3rd month)
+- 1st month
+  - Finalize detail spec document including most core data structures
+  - Build skeleton codebase and necessary tool functions for liquidity module
+- 2nd month
+  - Build core functions regarding pool deposit/withdraw, swap order, swap execution
+  - Write mathematical design report which expalains important calculation in liquidity module
+- 3rd month
+  - Testcodes for each core unit functions and write testing guide documentation
+  - Add minimal frontend interface and write frontend documentation
+  - Perform testing and debugging, adjust minor modification
+<br/>
+### Milestone 2 (4th~5th month)
+- 4th month
+  - Rebase codebase to Cosmos-SDK Stargate version
+  - Complete frontend interfaces including CLI,RPC,LCD
+  - Adjust minor changes in functionalities
+- 5th month
+  - Adjust documentation for spec modification, rebase and additional frontend interfaces
+  - Operate testnet and comply with issues and bugs
+<br/>
+### Milestone 3 (6th~10th month)
+- 6th~10th month
+  - Upgrade liquidity module with several additional features
+  - Maintain liquidity module codebase by complying with issues and bugs
+
 
 <br/><br/>
 
