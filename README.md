@@ -295,7 +295,9 @@ Swap tax (Optional, depends on community governace)
   - Testcodes for each core unit functions and write testing guide documentation
   - Add minimal frontend interface and write frontend documentation
   - Perform testing and debugging, adjust minor modification
+  
 <br/>
+
 ### Milestone 2 (4th~5th month)
 - 4th month
   - Rebase codebase to Cosmos-SDK Stargate version
@@ -304,7 +306,9 @@ Swap tax (Optional, depends on community governace)
 - 5th month
   - Adjust documentation for spec modification, rebase and additional frontend interfaces
   - Operate testnet and comply with issues and bugs
+
 <br/>
+
 ### Milestone 3 (6th~10th month)
 - 6th~10th month
   - Upgrade liquidity module with several additional features
