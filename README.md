@@ -4,6 +4,8 @@ modified 2020-08-27
 - adjust budget for 3 milestones(no change on total budget)
 - add milestone continuation condition and payment timing
 
+<br/>
+
 # Introduction
 
 <br/>
