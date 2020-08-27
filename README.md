@@ -358,7 +358,7 @@ Swap tax (Optional, depends on community governace)
 
 - Period : 3 months
 - Participants : 1 spec/doc, 2 backend, 1 UX and frontend support(1 month)
-- Cost : $10K/month per person($5K/month for UX planning)
+- Cost : $10K/month per person($5K/month for UX and frontend support)
 - Budget : 3months * (3pp * $10K) + 1month * (1pp * $5K) = $95K
 
 <br/>
@@ -367,7 +367,7 @@ Swap tax (Optional, depends on community governace)
 
 - Period : 2 months
 - Participants : 1 spec/doc, 2 backend
-- Cost : $10K/month per person($5K/month for UX planning)
+- Cost : $10K/month per person
 - Budget : 2months * (3pp * $10K) = $60K
 
 <br/>
