@@ -36,6 +36,7 @@ This module will be used in the Cosmos Hub, and any other blockchain based on Co
     - Handlers
 8. Params
 9. Future Improvements
+10. References
 
 # `01_concepts.md`
 
@@ -79,63 +80,48 @@ Token swaps are executed for every batch, which is composed of one or more conse
 
 ```go
 type LiquidityPool struct {
-	LiquidityPoolIndex uint64 // index of this liquidity pool
-	LiquidityPoolTypeIndex uint64 // pool type of this liquidity pool
-	SwapPriceFunction uint64 // swap price function of this liquidity pool
-	ReserveTokenDenoms []string // list of reserve token denoms for this liquidity pool
-	ReserveAccount sdk.AccAddress // module account address for this liquidity pool to store reserve tokens
-	PoolTokenDenom string // denom of pool token for this liquidity pool
-	SwapFeeRate sdk.Dec // swap fee rate for every executed swap on this liquidity pool
-	LiquidityPoolFeeRate sdk.Dec // liquidity pool fee rate for swaps consumed liquidity from this liquidity pool
-	BatchSize uint64 // size of each batch as a number of block heights
-	LastLiquidityPoolBatchIndex uint64 // index of the last batch of this liquidity pool
+	PoolID             uint64         // index of this liquidity pool
+	PoolTypeIndex      uint64         // pool type of this liquidity pool
+	SwapPriceFunction  uint64         // swap price function of this liquidity pool
+	ReserveTokenDenoms []string       // list of reserve token denoms for this liquidity pool
+	ReserveAccount     sdk.AccAddress // module account address for this liquidity pool to store reserve tokens
+	PoolTokenDenom     string         // denom of pool token for this liquidity pool
+	SwapFeeRate        sdk.Dec        // swap fee rate for every executed swap on this liquidity pool
+	FeeRate            sdk.Dec        // liquidity pool fee rate for swaps consumed liquidity from this liquidity pool
+	BatchSize          uint64         // size of each batch as a number of block heights
+	LastBatchIndex     uint64         // index of the last batch of this liquidity pool
 }
-
 ```
 
 ## LiquidityPoolBatch
 
-`LiquidityPoolBatch` stores definition and status of a liquidity pool batch
-
 ```go
 type LiquidityPoolBatch struct {
-	LiquidityPoolBatchIndex uint64 // index of this batch
-	LiquidityPoolIndex uint64 // index of the liquidity pool where this batch is belong to
-	BatchBeginHeight uint64 // height where this batch is begun
-	BatchSwapMessageList []BatchSwapMessage // list of swap messages stored in this batch
-	BatchPoolDepositMessageList []BatchPoolDepositMessage // list of pool deposit messages stored in this batch
-	BatchPoolWithdrawMessageList []BatchPoolWithdrawMessage // list of pool withdraw messages stored in this batch
-	BatchExecutionStatus bool // true if executed, false if not executed yet
+	BatchIndex              uint64                     // index of this batch
+	PoolID                  uint64                     // id of target liquidity pool
+	BeginHeight             uint64                     // height where this batch is begun
+	SwapMessageList         []BatchSwapMessage         // list of swap messages stored in this batch
+	PoolDepositMessageList  []BatchPoolDepositMessage  // list of pool deposit messages stored in this batch
+	PoolWithdrawMessageList []BatchPoolWithdrawMessage // list of pool withdraw messages stored in this batch
+	ExecutionStatus         bool                       // true if executed, false if not executed yet
 }
 
 type BatchSwapMessage struct {
-	TXHash string // tx hash for the original MsgSwap
-	MessageSender sdk.AccAddress // account address of the origin of this message
-	CreationHeight uint64 // height where this message is appended to the batch
-	TargetLiquidityPoolBatchIndex uint64 // index of the batch where this message is belong to
-	TargetLiquidityPoolIndex uint64 // index of the liquidity pool where this message is belong to
-	SwapType uint64 // swap type of this swap message
-	OfferToken sdk.Coin // offer token of this swap message
-	DemandTokenDenom string // denom of demand token of this swap message
-	OrderPrice sdk.Dec // order price of this swap message
+	TxHash    string // tx hash for the original MsgSwap
+	MsgHeight uint64 // height where this message is appended to the batch
+	Msg       MsgSwap
 }
 
 type BatchPoolDepositMessage struct {
-	TXHash string // tx hash for the original MsgDepositToLiquidityPool
-	MessageSender sdk.AccAddress // account address of the origin of this message
-	CreationHeight uint64 // height where this message is appended to the batch
-	TargetLiquidityPoolBatchIndex uint64 // index of the batch where this message is belong to
-	TargetLiquidityPoolIndex uint64 // index of the liquidity pool where this message is belong to
-	DepositTokensAmount sdk.Coins // deposit token of this pool deposit message
+	TxHash    string // tx hash for the original MsgDepositToLiquidityPool
+	MsgHeight uint64 // height where this message is appended to the batch
+	Msg       MsgDepositToLiquidityPool
 }
 
 type BatchPoolWithdrawMessage struct {
-	TXHash string // tx hash for the original MsgWithdrawFromLiquidityPool
-	MessageSender sdk.AccAddress // account address of the origin of this message
-	CreationHeight uint64 // height where this message is appended to the batch
-	TargetLiquidityPoolBatchIndex uint64 // index of the batch where this message is belong to
-	TargetLiquidityPoolIndex uint64 // index of the liquidity pool where this message is belong to
-	PoolTokenAmount sdk.Coin // pool token sent for reserve token withdraw
+	TxHash    string // tx hash for the original MsgWithdrawFromLiquidityPool
+	MsgHeight uint64 // height where this message is appended to the batch
+	Msg       MsgWithdrawFromLiquidityPool
 }
 ```
 
@@ -173,7 +159,84 @@ For withdrawal, after successful withdraw, escrowed pool tokens are burnt, and c
 
 ### Pseudo Algorithm for LiquidityPoolBatch Execution
 
-To do
+- excel simulation
+  
+    - [https://docs.google.com/spreadsheets/d/1yBhDF1DU0b_3ykuLmlvKtdrYKq4F-sg2cVf588TE-ZE/edit#gid=0](https://docs.google.com/spreadsheets/d/1yBhDF1DU0b_3ykuLmlvKtdrYKq4F-sg2cVf588TE-ZE/edit#gid=0)
+- process
+
+    1) swap price delta
+
+    - definitions
+        - all swap orders are seen as buy/sell limit orders from X token to Y token
+            - swap order sending X token to demand Y token : buy order (of Y token)
+            - swap order sending Y token to demand X token : sell order (of Y token)
+            - order price = unit price of Y token in X token
+        - S = sum of sell order amount with order price equal or lower than current swap price
+        - B = sum of buy order amount with order price equal or higher than current swap price
+        - NX = number of X token in the liquidity pool
+        - NY = number of X token in the liquidity pool
+        - P(t) = latest swap price from pool token ratio = NX / NY
+        - SwapPrice(t+1) = swap price for this batch ( to find! )
+            - P(t) is not equal to SwapPrice(t) !
+            - P(t+1) is not equal to SwapPrice(t+1) !
+    - swap price delta
+        - *if* S ≥ B *then* P(t+1) - P(t) ≤ 0 : price is non-increasing
+        - *if* S < B *then* P(t+1) - P(t) ≥ 0 : price is non-decreasing
+
+    2) simulate batch for all order prices of swap requests in the batch ( for price non-decreasing case )
+
+    (step1) finding adjusted price based on constant product equation
+
+    - definitions
+        - SimP_i = order price of i-th swap request = the swap price for this simulation
+            - SimP_i ≥ P(t) : price non-decreasing case only
+                - ignore SimP_i with SimP_i < P(t)
+        - SX_i = sum of buy order amount with order price equal or higher than SimP_i, in X token, which sends X token and demands Y token
+            - self swap : swap requests which can be matchable without utilizing pool liquidity
+        - SY_i = sum of sell order amount with order price equal or lower than SimP_i, in Y token, which sends Y token and demands X token
+    - calculation process
+        - find AdjP_i for each simulation
+            - constant product equation
+                - NX*NY = (NX + SX_i - AdjP_i*SY_i) * (NY + SY_i - AdjP_i*SX_i)
+                    - *if* SY_i == 0 or SX_i == 0 : above equation is linear equation → unique solution for AdjP_i
+                    - *if* SY_i > 0 and SX_i > 0 : above equation is quadratic equation → two solutions can be found for AdjP_i
+                        - choose AdjP_i which is nearer to P(t) (less price impact)
+            - range criteria for AdjP_i
+                - range criteria : AdjP_i should be located at first left or first right of SimP_i
+                    - MAX_j(SimP_j | SimP_j < SimP_i) < AdjP_i < MIN_j(SimP_j | SimP_j > SimP_i)
+                    - so that the AdjP_i possesses same SX_i and SY_i as SimP_i does
+                        - adjustment available only inside the territory of SimP_i
+                    - if above inequality does not hold, AdjP_i = SimP_i (fail to adjust price)
+
+    (step2) actual swap simulation
+
+    - definitions
+        - PY_i = available pool liquidity amount in Y token, to be provided for matching, based on constant product equation
+        - TY_i = available swap/pool amounts in Y token, to be provided for matching
+        - MX_i = total matched X token amount by self-swap or pool-swap
+        - MSX_i = self matched X token amount without utilizing pool liquidity
+        - MPX_i = pool matched X token amount via pool liquidity
+        - CPEDev_i = deviation of constant product value from NX*NY to the pool status after simulated swap
+    - calculation process
+        - calculate PY_i
+            - constant product equation : NX*NY = (NX + PY_i*AdjP_i)*(NY - PY_i)
+            - we can derive PY_i because other variables are known
+            - this amount of liquidity provided by the pool can be seen as a limit order from the pool with order price AdjP_i
+        - calculate TY_i = SY_i + PY_i
+        - calculate MX_i = MIN(SX_i, AdjP_i*TY_i)
+        - calculate MSX_i = MIN(AdjP_i*SY_i, MX_i)
+        - calculate MPX_i = MIN(MX_i-MSX_i, AdjP_i*PY_i)
+        - calculate CPEDev_i = | NX*NY - (NX + MPX_i)*(NY - MPX_i/AdjP_i) |
+        - finding optimized swap price from simulations
+            - CPEDev_i should be zero : satisfying constant product equation
+            - maximize MX_i : maximum swap amount for token X
+                - when there exists multiple simulation with maximum MX : choose one with minimal price impact ( |AdjP_i-P(t)| )
+            - the chosen AdjP_max is assigned as SwapPrice(t+1)
+            - the chosen simulation result is chosen to become the actual batch execution result
+
+    3) fee payment
+
+    - To do
 
 # `04_messages.md`
 
@@ -181,10 +244,10 @@ To do
 
 ```go
 type MsgCreateLiquidityPool struct {
-	MessageSender sdk.AccAddress // account address of the origin of this message
-	LiquidityPoolType uint64 // pool type of this new liquidity pool
-	ReserveTokenDenoms []string // list of reserve token denoms for this new liquidity pool
-	DepositTokensAmount sdk.Coins // deposit token for initial pool deposit into this new liquidity pool
+	PoolCreator         sdk.AccAddress // account address of the origin of this message
+	PoolTypeIndex       uint16         // index of the liquidity pool type of this new liquidity pool
+	ReserveTokenDenoms  []string       // list of reserve token denoms for this new liquidity pool, store alphabetical
+	DepositTokensAmount sdk.Coins      // deposit token for initial pool deposit into this new liquidity pool
 }
 ```
 
@@ -192,9 +255,9 @@ type MsgCreateLiquidityPool struct {
 
 ```go
 type MsgDepositToLiquidityPool struct {
-	MessageSender sdk.AccAddress // account address of the origin of this message
-	TargetLiquidityPoolIndex uint64 // index of the liquidity pool where this message is belong to
-	DepositTokensAmount sdk.Coins // deposit token of this pool deposit message
+	Depositor           sdk.AccAddress // account address of the origin of this message
+	PoolID              uint64         // id of the liquidity pool where this message is belong to
+	DepositTokensAmount sdk.Coins      // deposit token of this pool deposit message
 }
 ```
 
@@ -202,9 +265,9 @@ type MsgDepositToLiquidityPool struct {
 
 ```go
 type MsgWithdrawFromLiquidityPool struct {
-	MessageSender sdk.AccAddress // account address of the origin of this message
-	TargetLiquidityPoolIndex uint64 // index of the liquidity pool where this message is belong to
-	PoolTokenAmount sdk.Coin // pool token sent for reserve token withdraw
+	Withdrawer      sdk.AccAddress // account address of the origin of this message
+	PoolID          uint64         // id of the liquidity pool where this message is belong to
+	PoolTokenAmount sdk.Coins      // pool token sent for reserve token withdraw
 }
 ```
 
@@ -212,12 +275,13 @@ type MsgWithdrawFromLiquidityPool struct {
 
 ```go
 type MsgSwap struct {
-	MessageSender sdk.AccAddress // account address of the origin of this message
-	TargetLiquidityPoolIndex uint64 // index of the liquidity pool where this message is belong to
-	SwapType uint64 // swap type of this swap message
-	OfferToken sdk.Coin // offer token of this swap message
-	DemandTokenDenom string // denom of demand token of this swap message
-	OrderPrice sdk.Dec // order price of this swap message
+	SwapRequester sdk.AccAddress // account address of the origin of this message
+	PoolID        uint64         // id of the liquidity pool where this message is belong to
+	PoolTypeIndex uint16         // index of the liquidity pool type where this message is belong to
+	SwapType      uint16         // swap type of this swap message, default 1: InstantSwap, requesting instant swap
+	OfferToken    sdk.Coin       // offer token of this swap message
+	DemandToken   sdk.Coin       // denom of demand token of this swap message
+	OrderPrice    sdk.Dec        // order price of this swap message
 }
 ```
 
@@ -251,13 +315,138 @@ If current `BlockHeight` *mod* `BatchSize` of current `LiquidityPoolBatch` equal
 
 # `07_events.md`
 
+
 ## Handlers
 
+### MsgCreateLiquidityPool
+
+|Type                 |Attribute Key            |Attribute Value      |
+|---------------------|-------------------------|---------------------|
+|create_liquidity_pool|liquidity_pool_id        |                     |
+|create_liquidity_pool|liquidity_pool_type_index|                     |
+|create_liquidity_pool|swap_price_function      |                     |
+|create_liquidity_pool|reserve_token_denoms     |                     |
+|create_liquidity_pool|reserve_account          |                     |
+|create_liquidity_pool|pool_token_denom         |                     |
+|create_liquidity_pool|swap_fee_rate            |                     |
+|create_liquidity_pool|liquidity_pool_fee_rate  |                     |
+|create_liquidity_pool|batch_size               |                     |
+|message              |module                   |liquidity            |
+|message              |action                   |create_liquidity_pool|
+|message              |sender                   |{senderAddress}      |
+
+
+### MsgDepositToLiquidityPool
+
+|Type                              |Attribute Key|Attribute Value          |
+|----------------------------------|-------------|-------------------------|
+|deposit_to_liquidity_pool_to_batch|batch_id     |                         |
+|message                           |module       |liquidity                |
+|message                           |action       |deposit_to_liquidity_pool|
+|message                           |sender       |{senderAddress}          |
+
+### MsgWithdrawFromLiquidityPool
+
+|Type                                 |Attribute Key|Attribute Value             |
+|-------------------------------------|-------------|----------------------------|
+|withdraw_from_liquidity_pool_to_batch|batch_id     |                            |
+|message                              |module       |liquidity                   |
+|message                              |action       |withdraw_from_liquidity_pool|
+|message                              |sender       |{senderAddress}             |
+
+### MsgSwap
+
+|Type         |Attribute Key|Attribute Value|
+|-------------|-------------|---------------|
+|swap_to_batch|batch_id     |               |
+|message      |module       |liquidity      |
+|message      |action       |swap           |
+|message      |sender       |{senderAddress}|
 
 ## EndBlocker
+
+### Batch Result for MsgDepositToLiquidityPool
+
+|Type                     |Attribute Key         |Attribute Value|
+|-------------------------|----------------------|---------------|
+|deposit_to_liquidity_pool|tx_hash               |               |
+|deposit_to_liquidity_pool|depositor             |               |
+|deposit_to_liquidity_pool|liquidity_pool_index  |               |
+|deposit_to_liquidity_pool|accepted_token_amount |               |
+|deposit_to_liquidity_pool|rerfunded_token_amount|               |
+|deposit_to_liquidity_pool|success               |               |
+
+### Batch Result for MsgWithdrawFromLiquidityPool
+
+|Type                        |Attribute Key        |Attribute Value|
+|----------------------------|---------------------|---------------|
+|withdraw_from_liquidity_pool|tx_hash              |               |
+|withdraw_from_liquidity_pool|withdrawer           |               |
+|withdraw_from_liquidity_pool|liquidity_pool_index |               |
+|withdraw_from_liquidity_pool|pool_token_amount    |               |
+|withdraw_from_liquidity_pool|withdraw_token_amount|               |
+|withdraw_from_liquidity_pool|success              |               |
+
+### Batch Result for MsgSwap
+
+|Type|Attribute Key          |Attribute Value|
+|----|-----------------------|---------------|
+|swap|tx_hash                |               |
+|swap|swap_requester         |               |
+|swap|liquidity_pool_index   |               |
+|swap|swap_type              |               |
+|swap|accepted_offer_token   |               |
+|swap|refunded_offer_token   |               |
+|swap|received_demand_token  |               |
+|swap|swap_price             |               |
+|swap|paid_swap_fee          |               |
+|swap|paid_liquidity_pool_fee|               |
+|swap|success                |               |
 
 
 # `08_params.md`
 
 ## Parameters
 
+The liquidity module contains the following parameters:
+
+|Key                                 |Type               |Example                                                                                                                                            |
+|------------------------------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+|LiquidityPoolType                   |[]LiquidityPoolType|[{"description":"ConstantProductLiquidityPool","num_of_reserve_tokens":2,"pool_type_index":1,"swap_price_function_name":"ConstantProductFunction"}]|
+|MinimumInitialDepositToLiquidityPool|string (uint64)    |"1000000"                                                                                                                                          |
+|InitialPoolTokenMintAmount          |string (uint64)    |"1000000"                                                                                                                                          |
+|DefaultSwapFeeRate                  |string (sdk.Dec)   |"0.001000000000000000"                                                                                                                             |
+|DefaultLiquidityPoolFeeRate         |string (sdk.Dec)   |"0.002000000000000000"                                                                                                                             |
+
+## LiquidityPoolType
+
+List of available LiquidityPoolType
+
+```go
+type LiquidityPoolType struct {
+	PoolTypeIndex         uint16
+	NumOfReserveTokens    uint16
+	SwapPriceFunctionName string
+	Description           string
+}
+```
+
+## MinimumInitialDepositToLiquidityPool
+
+Minimum number of tokens to be deposited to the pool upon pool creation
+
+## InitialPoolTokenMintAmount
+
+Initial mint amount of pool token upon pool creation
+
+## DefaultSwapFeeRate
+
+Swap fee rate for every executed swap
+
+## DefaultLiquidityPoolFeeRate
+
+Liquidity pool fee rate only for swaps consumed pool liquidity
+
+# References
+
+[https://github.com/b-harvest/Liquidity-Module-For-the-Hub](https://github.com/b-harvest/Liquidity-Module-For-the-Hub)
