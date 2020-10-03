@@ -30,7 +30,7 @@ This module will be used in the Cosmos Hub, and any other blockchain based on Co
 6. End Block
     - Create New LiquidityPool
     - Create New LiquidityPoolBatch
-    - Append Messsages to LiquidityPoolBatch
+    - Append Messages to LiquidityPoolBatch
 7. Events
     - EndBlocker
     - Handlers
@@ -82,7 +82,6 @@ Token swaps are executed for every batch, which is composed of one or more conse
 type LiquidityPool struct {
 	PoolID             uint64         // index of this liquidity pool
 	PoolTypeIndex      uint64         // pool type of this liquidity pool
-	SwapPriceFunction  uint64         // swap price function of this liquidity pool
 	ReserveTokenDenoms []string       // list of reserve token denoms for this liquidity pool
 	ReserveAccount     sdk.AccAddress // module account address for this liquidity pool to store reserve tokens
 	PoolTokenDenom     string         // denom of pool token for this liquidity pool
@@ -92,6 +91,10 @@ type LiquidityPool struct {
 	LastBatchIndex     uint64         // index of the last batch of this liquidity pool
 }
 ```
+
+LiquidityPool: `0x11 | LiquidityPoolID -> amino(LiquidityPool)`
+
+LiquidityPoolByReserveAccIndex: `0x12 | ReserveAcc -> nil`
 
 ## LiquidityPoolBatch
 
@@ -125,6 +128,10 @@ type BatchPoolWithdrawMessage struct {
 }
 ```
 
+LiquidityPoolBatchIndex: `0x21 | PoolID -> amino(int64)`
+
+LiquidityPoolBatch: `0x22 | PoolID | BatchIndex -> amino(LiquidityPoolBatch)`
+
 # `03_state_transitions.md`
 
 ## Token Escrow for Liquidity Module Messages
@@ -137,11 +144,11 @@ To deposit tokens into existing `LiquidityPool`, the depositor needs to escrow `
 
 ### MsgWithdrawFromLiquidityPool
 
-To withdraw tokens from `LiquidityPool`, the withdrawer needs to escrow `PoolTokenAmount` into `LiquidityModuleEscrowAccount`. 
+To withdraw tokens from `LiquidityPool`, the withdrawer needs to escrow `PoolTokenAmount` into `LiquidityModuleEscrowAccount`.
 
 ### MsgSwap
 
-To request token swap, swap requestor needs to escrow `OfferToken` into `LiquidityModuleEscrowAccount`. 
+To request token swap, swap requestor needs to escrow `OfferToken` into `LiquidityModuleEscrowAccount`.
 
 ## LiquidityPoolBatch Execution
 
@@ -160,7 +167,7 @@ For withdrawal, after successful withdraw, escrowed pool tokens are burnt, and c
 ### Pseudo Algorithm for LiquidityPoolBatch Execution
 
 - excel simulation
-  
+
     - [https://docs.google.com/spreadsheets/d/1yBhDF1DU0b_3ykuLmlvKtdrYKq4F-sg2cVf588TE-ZE/edit#gid=0](https://docs.google.com/spreadsheets/d/1yBhDF1DU0b_3ykuLmlvKtdrYKq4F-sg2cVf588TE-ZE/edit#gid=0)
 - process
 
@@ -295,17 +302,17 @@ All `LiquidityPoolBatch` where `BatchExecutionStatus` is *true* are deleted from
 
 ## 1) Create New LiquidityPool
 
-`MsgCreateLiquidityPool` is verified and executed in the end block. 
+`MsgCreateLiquidityPool` is verified and executed in the end block.
 
 After successful verification, a new `LiquidityPool` is created and the initial `DepositTokensAmount` are deposited to the `ReserveAccount` of newly created `LiquidityPool`.
 
 ## 2) Create New LiquidityPoolBatch
 
-When there exists no `LiquidityPoolBatch` for the incoming `MsgDepositToLiquidityPool`, `MsgWithdrawFromLiquidityPool`, or `MsgSwap` of corresponding `LiquidityPool`, a new `LiquidityPoolBatch` is created. 
+When there exists no `LiquidityPoolBatch` for the incoming `MsgDepositToLiquidityPool`, `MsgWithdrawFromLiquidityPool`, or `MsgSwap` of corresponding `LiquidityPool`, a new `LiquidityPoolBatch` is created.
 
 And, `LastLiquidityPoolBatchIndex` of the corresponding `LiquidityPool` is updated to the `LiquidityPoolBatchIndex` of the newly created `LiquidityPoolBatch`.
 
-## 3) Append Messsages to LiquidityPoolBatch
+## 3) Append Messages to LiquidityPoolBatch
 
 After successful message verification and token escrow process, the incoming `MsgDepositToLiquidityPool`, `MsgWithdrawFromLiquidityPool`, and `MsgSwap` are appended into the current `LiquidityPoolBatch` of the corresponding `LiquidityPool`.
 
@@ -324,7 +331,6 @@ If current `BlockHeight` *mod* `BatchSize` of current `LiquidityPoolBatch` equal
 |---------------------|-------------------------|---------------------|
 |create_liquidity_pool|liquidity_pool_id        |                     |
 |create_liquidity_pool|liquidity_pool_type_index|                     |
-|create_liquidity_pool|swap_price_function      |                     |
 |create_liquidity_pool|reserve_token_denoms     |                     |
 |create_liquidity_pool|reserve_account          |                     |
 |create_liquidity_pool|pool_token_denom         |                     |
@@ -367,41 +373,41 @@ If current `BlockHeight` *mod* `BatchSize` of current `LiquidityPoolBatch` equal
 
 ### Batch Result for MsgDepositToLiquidityPool
 
-|Type                     |Attribute Key         |Attribute Value|
-|-------------------------|----------------------|---------------|
-|deposit_to_liquidity_pool|tx_hash               |               |
-|deposit_to_liquidity_pool|depositor             |               |
-|deposit_to_liquidity_pool|liquidity_pool_index  |               |
-|deposit_to_liquidity_pool|accepted_token_amount |               |
-|deposit_to_liquidity_pool|rerfunded_token_amount|               |
-|deposit_to_liquidity_pool|success               |               |
+| Type                      | Attribute Key         | Attribute Value |
+| ------------------------- | --------------------- | --------------- |
+| deposit_to_liquidity_pool | tx_hash               |                 |
+| deposit_to_liquidity_pool | depositor             |                 |
+| deposit_to_liquidity_pool | liquidity_pool_id     |                 |
+| deposit_to_liquidity_pool | accepted_token_amount |                 |
+| deposit_to_liquidity_pool | refunded_token_amount |                 |
+| deposit_to_liquidity_pool | success               |                 |
 
 ### Batch Result for MsgWithdrawFromLiquidityPool
 
-|Type                        |Attribute Key        |Attribute Value|
-|----------------------------|---------------------|---------------|
-|withdraw_from_liquidity_pool|tx_hash              |               |
-|withdraw_from_liquidity_pool|withdrawer           |               |
-|withdraw_from_liquidity_pool|liquidity_pool_index |               |
-|withdraw_from_liquidity_pool|pool_token_amount    |               |
-|withdraw_from_liquidity_pool|withdraw_token_amount|               |
-|withdraw_from_liquidity_pool|success              |               |
+| Type                         | Attribute Key         | Attribute Value |
+| ---------------------------- | --------------------- | --------------- |
+| withdraw_from_liquidity_pool | tx_hash               |                 |
+| withdraw_from_liquidity_pool | withdrawer            |                 |
+| withdraw_from_liquidity_pool | liquidity_pool_id     |                 |
+| withdraw_from_liquidity_pool | pool_token_amount     |                 |
+| withdraw_from_liquidity_pool | withdraw_token_amount |                 |
+| withdraw_from_liquidity_pool | success               |                 |
 
 ### Batch Result for MsgSwap
 
-|Type|Attribute Key          |Attribute Value|
-|----|-----------------------|---------------|
-|swap|tx_hash                |               |
-|swap|swap_requester         |               |
-|swap|liquidity_pool_index   |               |
-|swap|swap_type              |               |
-|swap|accepted_offer_token   |               |
-|swap|refunded_offer_token   |               |
-|swap|received_demand_token  |               |
-|swap|swap_price             |               |
-|swap|paid_swap_fee          |               |
-|swap|paid_liquidity_pool_fee|               |
-|swap|success                |               |
+| Type | Attribute Key           | Attribute Value |
+| ---- | ----------------------- | --------------- |
+| swap | tx_hash                 |                 |
+| swap | swap_requester          |                 |
+| swap | liquidity_pool_id       |                 |
+| swap | swap_type               |                 |
+| swap | accepted_offer_token    |                 |
+| swap | refunded_offer_token    |                 |
+| swap | received_demand_token   |                 |
+| swap | swap_price              |                 |
+| swap | paid_swap_fee           |                 |
+| swap | paid_liquidity_pool_fee |                 |
+| swap | success                 |                 |
 
 
 # `08_params.md`
@@ -410,15 +416,15 @@ If current `BlockHeight` *mod* `BatchSize` of current `LiquidityPoolBatch` equal
 
 The liquidity module contains the following parameters:
 
-|Key                                 |Type               |Example                                                                                                                                            |
-|------------------------------------|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-|LiquidityPoolType                   |[]LiquidityPoolType|[{"description":"ConstantProductLiquidityPool","num_of_reserve_tokens":2,"pool_type_index":1,"swap_price_function_name":"ConstantProductFunction"}]|
-|MinimumInitialDepositToLiquidityPool|string (uint64)    |"1000000"                                                                                                                                          |
-|InitialPoolTokenMintAmount          |string (uint64)    |"1000000"                                                                                                                                          |
-|DefaultSwapFeeRate                  |string (sdk.Dec)   |"0.001000000000000000"                                                                                                                             |
-|DefaultLiquidityPoolFeeRate         |string (sdk.Dec)   |"0.002000000000000000"                                                                                                                             |
+|Key                                 |Type                |Example                                                                                                                                             |
+|------------------------------------|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+|LiquidityPoolTypes                  |[]LiquidityPoolType |[{"description":"ConstantProductLiquidityPool","num_of_reserve_tokens":2,"pool_type_index":0},"swap_price_function_name":"ConstantProductFunction"}]|
+|MinimumInitialDepositToLiquidityPool|string (sdk.Int)    |"1000000"                                                                                                                                           |
+|InitialPoolTokenMintAmount          |string (sdk.Int)    |"1000000"                                                                                                                                           |
+|DefaultSwapFeeRate                  |string (sdk.Dec)    |"0.001000000000000000"                                                                                                                              |
+|DefaultLiquidityPoolFeeRate         |string (sdk.Dec)    |"0.002000000000000000"                                                                                                                              |
 
-## LiquidityPoolType
+## LiquidityPoolTypes
 
 List of available LiquidityPoolType
 
