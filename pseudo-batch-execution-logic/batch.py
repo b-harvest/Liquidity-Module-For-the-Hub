@@ -7,7 +7,7 @@ orderLifeSpanHeight = 0 # orders will be cancelled after this number of heights
 
 
 def sortOrderPrice(value):
-	return value["orderPrice"]
+  return value["orderPrice"]
 
 def setPoolReserve():
   X = random.random()*1000000
