@@ -431,7 +431,6 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice):
   
   # initiate variables
   matchResultXtoY = []
-  lastOrderPrice = 0
   accumMatchAmt = 0
   matchAmt = 0
   matchOrderList = []
@@ -483,15 +482,13 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice):
               "orderAmt":matchOrder["orderAmt"],
               "matchedXAmt":matchOrder["orderAmt"]*fractionalMatchRatio,
               "refundXAmt":matchOrder["orderAmt"]*(1-fractionalMatchRatio),
-              "receiveYAmt":matchOrder["orderAmt"]*fractionalMatchRatio/swapPrice*(1-feeRate),
+              "receiveYAmt":matchOrder["orderAmt"]*fractionalMatchRatio/swapPrice,
               "feeYAmt":matchOrder["orderAmt"]*fractionalMatchRatio/swapPrice*feeRate
             })
       # update accumMatchAmt and initiate matchAmt and matchOrderList
       accumMatchAmt += matchAmt
       matchAmt = 0
       matchOrderList = []
-    
-    lastOrderPrice = order["orderPrice"]
     
     if breakFlag:
       break
@@ -500,7 +497,6 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice):
 
   # initiate variables
   matchResultYtoX = []
-  lastOrderPrice = 0
   accumMatchAmt = 0
   matchAmt = 0
   matchOrderList = []
@@ -551,16 +547,13 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice):
               "orderAmt":matchOrder["orderAmt"],
               "matchedYAmt":matchOrder["orderAmt"]*fractionalMatchRatio,
               "refundYAmt":matchOrder["orderAmt"]*(1-fractionalMatchRatio),
-              "receiveXAmt":matchOrder["orderAmt"]*fractionalMatchRatio*swapPrice*(1-feeRate),
+              "receiveXAmt":matchOrder["orderAmt"]*fractionalMatchRatio*swapPrice,
               "feeYAmt":matchOrder["orderAmt"]*fractionalMatchRatio*swapPrice*feeRate
             })
       # update accumMatchAmt and initiate matchAmt and matchOrderList
       accumMatchAmt += matchAmt
       matchAmt = 0
       matchOrderList = []
-    
-    # update lastOrderPrice
-    lastOrderPrice = order["orderPrice"]
     
     if breakFlag:
       break
