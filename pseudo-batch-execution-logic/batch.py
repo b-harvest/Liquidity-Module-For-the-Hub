@@ -2,9 +2,6 @@ import random
 import os
 
 pseudoZero = 0.0000000001
-feeRate = 0.003
-orderLifeSpanHeight = 0 # orders will be cancelled after this number of heights
-
 
 def sortOrderPrice(value):
   return value["orderPrice"]
@@ -12,6 +9,11 @@ def sortOrderPrice(value):
 def setPoolReserve():
   X = random.random()*1000000
   Y = random.random()*1000000
+  return X, Y
+
+def setPoolReservePlain():
+  X = 100
+  Y = 100
   return X, Y
 
 def getRandomOrders(X,Y):
@@ -44,7 +46,33 @@ def getRandomOrders(X,Y):
   return XtoYNewOrders, YtoXNewOrders
 
 
-def addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height):
+def getNonEquilibriumOrders(X,Y):
+
+  currentPrice = X/Y
+  XtoYNewOrders = [] # buying Y from X
+  YtoXNewOrders = [] # selling Y for X
+
+  orderPrice = currentPrice*(1+0.000001-0.00000000001)
+  orderAmt = X*0.1
+  newOrder = {
+    "orderPrice":orderPrice,
+    "orderAmt":orderAmt,
+  }
+  XtoYNewOrders.append(newOrder)
+  
+  orderPrice = currentPrice*(1+0.000001+0.00000000001)
+  orderAmt = Y*0.1
+  newOrder = {
+    "orderPrice":orderPrice,
+    "orderAmt":orderAmt,
+  }
+  YtoXNewOrders.append(newOrder)
+  
+  return XtoYNewOrders, YtoXNewOrders
+
+
+
+def addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height, orderLifeSpanHeight):
 
   i = 0
   for order in XtoYNewOrders:
@@ -174,8 +202,9 @@ def getExecutableAmt(orderPrice, orderbook):
   return executableBuyAmtX, executableSellAmtY
 
 
-def calculateMatchStay(currentPrice, orderbook):
+def calculateMatchStay(X, Y, orderbook):
 
+  currentPrice = X/Y
   swapPrice = currentPrice
   executableBuyAmtX, executableSellAmtY = getExecutableAmt(swapPrice, orderbook)
   EX = executableBuyAmtX
@@ -229,9 +258,10 @@ def calculateSwapIncrease(X,Y,orderbook, orderPrice, lastOrderPrice):
   return matchType, EX, EY, originalEX, originalEY, swapPrice, PoolY
 
 
-def calculateMatchIncrease(currentPrice, orderbook):
+def calculateMatchIncrease(X, Y, orderbook):
 
   # variable initialization
+  currentPrice = X/Y
   lastOrderPrice = currentPrice
   PoolX = 0
   PoolY = 0
@@ -311,9 +341,10 @@ def calculateSwapDecrease(X,Y,orderbook, orderPrice, lastOrderPrice):
   return matchType, EX, EY, originalEX, originalEY, swapPrice, PoolX
 
 
-def calculateMatchDecrease(currentPrice, orderbook):
+def calculateMatchDecrease(X, Y, orderbook):
 
   # variable initialization
+  currentPrice = X/Y
   lastOrderPrice = currentPrice
   PoolX = 0
   PoolY = 0
@@ -366,30 +397,31 @@ def calculateMatchDecrease(currentPrice, orderbook):
   return matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY
 
 
-def compareTransactAmtX(currentPrice, orderbook):
+def computePriceDirection(X, Y, orderbook):
 
   orderbook = sorted(orderbook, key=sortOrderPrice)
+  currentPrice = X/Y
 
   priceDirection = getPriceDirection(currentPrice, orderbook)
-  print("priceDirection: " + str(priceDirection))
-  print("\n")
+  # print("priceDirection: " + str(priceDirection))
+  # print("\n")
 
   if priceDirection == "stay":
 
-    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = calculateMatchStay(currentPrice, orderbook)
+    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = calculateMatchStay(X, Y, orderbook)
     stayResult = [matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY]
     return stayResult
 
   elif priceDirection == "increase":
 
-    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = calculateMatchIncrease(currentPrice, orderbook)
+    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = calculateMatchIncrease(X, Y, orderbook)
     increaseResult = [matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY]
     return increaseResult
   
   elif priceDirection == "decrease":
 
     orderbook = sorted(orderbook, key=sortOrderPrice, reverse=True)
-    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = calculateMatchDecrease(currentPrice, orderbook)
+    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = calculateMatchDecrease(X, Y, orderbook)
     decreaseResult = [matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY]
     return decreaseResult
 
@@ -405,11 +437,8 @@ def swapCalculation(X, Y, XtoY, YtoX, height):
   # get orderbook
   orderbook = getOrderbook(XtoY, YtoX)
 
-  # calculate current price
-  currentPrice = X/Y
-  
   # calculate each case
-  result = compareTransactAmtX(currentPrice, orderbook)
+  result = computePriceDirection(X, Y, orderbook)
   matchType = result[0]
   swapPrice = result[1]
   EX = result[2]
@@ -418,12 +447,12 @@ def swapCalculation(X, Y, XtoY, YtoX, height):
   originalEY = result[5]
   PoolX = result[6]
   PoolY = result[7]
-
+  
   return matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY
 
     
 
-def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice):
+def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate):
 
   # sort XtoY, YtoX
   XtoY = sorted(XtoY, key=sortOrderPrice, reverse=True)
@@ -641,8 +670,8 @@ def printOrderbook(XtoY, YtoX, currentPrice):
     if order["sellOrderAmt"] > 0 and order["orderPrice"] < minSellOrderPrice:
       minSellOrderPrice = order["orderPrice"]
     print(order)
-  if maxBuyOrderPrice > minSellOrderPrice or maxBuyOrderPrice > currentPrice or minSellOrderPrice < currentPrice:
-  # if maxBuyOrderPrice > minSellOrderPrice:
+  # if maxBuyOrderPrice > minSellOrderPrice or maxBuyOrderPrice > currentPrice or minSellOrderPrice < currentPrice:
+  if maxBuyOrderPrice > minSellOrderPrice:
     return False
   else:
     return True
@@ -700,65 +729,151 @@ def printMatchResult(matchType, swapPrice, matchResultXtoY, matchResultYtoX, Poo
 
   return True
 
-# initialize states
-height = 1
-X, Y = setPoolReserve()
-currentPrice = X/Y
-maxOrderIDXtoY = 0
-maxOrderIDYtoX = 0
-XtoY = []
-YtoX = []
-orderbook = []
-orderbookValidity = True
 
-# simulation
-while height<10000:
+def standardSimulation():
 
-  # os.system("clear")
+  # simulation parameters
+  feeRate = 0.003
+  orderLifeSpanHeight = 10 # orders will be cancelled after this number of heights
+  simBlockNum = 100
+
+  # initialize states
+  height = 1
+  X, Y = setPoolReserve()
+  currentPrice = X/Y
+  maxOrderIDXtoY = 0
+  maxOrderIDYtoX = 0
+  XtoY = []
+  YtoX = []
+  orderbook = []
+  orderbookValidity = True
+
+  # simulation
+  while height<simBlockNum:
+
+    # get random orders
+    XtoYNewOrders, YtoXNewOrders = getRandomOrders(X,Y)
+
+    # add new orders
+    XtoY, YtoX, maxOrderIDXtoY, maxOrderIDYtoX = addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height, orderLifeSpanHeight)
+
+    print("height:" + str(height) + ", X/Y:" + str(X/Y) + ", X:" + str(X) + ", Y:" + str(Y))
+    print("\n")
+
+    print("orderbook before batch:")
+    orderbookValidity = printOrderbook(XtoY, YtoX, X/Y)
+    print("orderbook validity: " + str(orderbookValidity))
+    print("\n")
+
+    # swap pre-calculation
+    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = swapCalculation(X, Y, XtoY, YtoX, height)
+
+    # print(matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY)
+
+    # find order matching
+    matchResultXtoY, matchResultYtoX = findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate)
+
+    # swap execution
+    X, Y, XtoY, YtoX, PoolXdelta, PoolYdelta = updateState(X, Y, XtoY, YtoX, matchResultXtoY, matchResultYtoX)
+
+    # print match result
+    printMatchResult(matchType, swapPrice, matchResultXtoY, matchResultYtoX, PoolXdelta, PoolYdelta)
+
+    # update height
+    height += 1
+
+    # cancel end of life span orders
+    XtoY, YtoX, cancelOrderListXtoY, cancelOrderListYtoX = cancelEndOfLifeSpanOrders(XtoY, YtoX, height)
+    XtoY, YtoX = clearBlankOrder(XtoY, YtoX)
+    
+    print("height:" + str(height) + ", X/Y:" + str(X/Y) + ", X:" + str(X) + ", Y:" + str(Y))
+    print("\n")
+
+    # print current orderbook
+    print("orderbook after batch:")
+    orderbookValidity = printOrderbook(XtoY, YtoX, X/Y)
+    print("orderbook validity: " + str(orderbookValidity))
+    print("\n")  
+
+    if orderbookValidity == False:
+      wait = input("pause")
+
+
+def nonEquilibriumSimulation():
+
+  # simulation parameters
+  feeRate = 0.003
+  orderLifeSpanHeight = 99999999 # orders will be cancelled after this number of heights
   
+  # initialize states
+  height = 1
+  X, Y = setPoolReservePlain()
+  currentPrice = X/Y
+  maxOrderIDXtoY = 0
+  maxOrderIDYtoX = 0
+  XtoY = []
+  YtoX = []
+  orderbook = []
+  orderbookValidity = True
+  EX = 1
+  PoolX = 1
+
   # get random orders
-  XtoYNewOrders, YtoXNewOrders = getRandomOrders(X,Y)
+  XtoYNewOrders, YtoXNewOrders = getNonEquilibriumOrders(X,Y)
 
   # add new orders
-  XtoY, YtoX, maxOrderIDXtoY, maxOrderIDYtoX = addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height)
+  XtoY, YtoX, maxOrderIDXtoY, maxOrderIDYtoX = addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height, orderLifeSpanHeight)
 
-  print("height:" + str(height) + ", X/Y:" + str(X/Y) + ", X:" + str(X) + ", Y:" + str(Y))
-  print("\n")
+  # simulation
+  while EX+PoolX > 0:
 
-  print("orderbook before batch:")
-  orderbookValidity = printOrderbook(XtoY, YtoX, X/Y)
-  print("orderbook validity: " + str(orderbookValidity))
-  print("\n")
+    # print("height:" + str(height) + ", X/Y:" + str(X/Y) + ", X:" + str(X) + ", Y:" + str(Y))
+    # print("\n")
 
-  # swap pre-calculation
-  matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = swapCalculation(X, Y, XtoY, YtoX, height)
+    print("orderbook before batch:")
+    orderbookValidity = printOrderbook(XtoY, YtoX, X/Y)
+    # print("orderbook validity: " + str(orderbookValidity))
+    # print("\n")
 
-  # print(matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY)
+    lastX = X
+    lastY = Y
 
-  # find order matching
-  matchResultXtoY, matchResultYtoX = findOrderMatch(XtoY, YtoX, EX, EY, swapPrice)
+    # swap pre-calculation
+    matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = swapCalculation(X, Y, XtoY, YtoX, height)
 
-  # swap execution
-  X, Y, XtoY, YtoX, PoolXdelta, PoolYdelta = updateState(X, Y, XtoY, YtoX, matchResultXtoY, matchResultYtoX)
+    print(matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY)
 
-  # print match result
-  printMatchResult(matchType, swapPrice, matchResultXtoY, matchResultYtoX, PoolXdelta, PoolYdelta)
+    # find order matching
+    matchResultXtoY, matchResultYtoX = findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate)
 
-  # update height
-  height += 1
+    # swap execution
+    X, Y, XtoY, YtoX, PoolXdelta, PoolYdelta = updateState(X, Y, XtoY, YtoX, matchResultXtoY, matchResultYtoX)
 
-  # cancel end of life span orders
-  XtoY, YtoX, cancelOrderListXtoY, cancelOrderListYtoX = cancelEndOfLifeSpanOrders(XtoY, YtoX, height)
-  XtoY, YtoX = clearBlankOrder(XtoY, YtoX)
-  
-  print("height:" + str(height) + ", X/Y:" + str(X/Y) + ", X:" + str(X) + ", Y:" + str(Y))
-  print("\n")
+    # print match result
+    # printMatchResult(matchType, swapPrice, matchResultXtoY, matchResultYtoX, PoolXdelta, PoolYdelta)
 
-  # print current orderbook
-  print("orderbook after batch:")
-  orderbookValidity = printOrderbook(XtoY, YtoX, X/Y)
-  print("orderbook validity: " + str(orderbookValidity))
-  print("\n")  
+    # update height
+    height += 1
 
-  if orderbookValidity == False:
-    wait = input("pause")
+    # cancel end of life span orders
+    XtoY, YtoX, cancelOrderListXtoY, cancelOrderListYtoX = cancelEndOfLifeSpanOrders(XtoY, YtoX, height)
+    XtoY, YtoX = clearBlankOrder(XtoY, YtoX)
+
+    print("poolPrice(t-1) / swapPrice(t) / poolPrice(t): " + str(lastX/lastY) + " / " + str(swapPrice) + " / " + str(X/Y))
+    
+    print("height:" + str(height) + ", X/Y:" + str(X/Y) + ", X:" + str(X) + ", Y:" + str(Y))
+    # print("\n")
+
+    # print current orderbook
+    # print("orderbook after batch:")
+    orderbookValidity = printOrderbook(XtoY, YtoX, X/Y)
+    # print("orderbook validity: " + str(orderbookValidity))
+    # print("\n")  
+
+    if orderbookValidity == False:
+      wait = input("pause")
+
+
+
+# standardSimulation()
+nonEquilibriumSimulation()
