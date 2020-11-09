@@ -1,7 +1,14 @@
+# New Swap Price Model
+#   model : next pool price = swap price
+#     price increase case : P = (X + deltaX) / (Y - deltaX / P) --> P = (X + 2*deltaX) / Y
+#     price decrease case : P = (X - deltaY * P) / (Y + deltaY) --> P = X / (Y + 2*deltaY)
+#   code changes : find "newSwapPriceModel"
+
 import random
 import os
 
 pseudoZero = 0.0000000001
+pseudoMaxInt = 10000000000.0
 
 def sortOrderPrice(value):
   return value["orderPrice"]
@@ -181,9 +188,9 @@ def getPriceDirection(currentPrice, orderbook):
     elif order["orderPrice"] < currentPrice:
       sellAmtUnderCurrentPrice += order["sellOrderAmt"]
   
-  if buyAmtOverCurrentPrice > (sellAmtUnderCurrentPrice+sellAmtAtCurrentPrice)*currentPrice:
+  if buyAmtOverCurrentPrice - (sellAmtUnderCurrentPrice+sellAmtAtCurrentPrice)*currentPrice > 0:
     direction = "increase"
-  elif sellAmtUnderCurrentPrice*currentPrice > (buyAmtOverCurrentPrice+buyAmtAtCurrentPrice):
+  elif sellAmtUnderCurrentPrice*currentPrice - (buyAmtOverCurrentPrice+buyAmtAtCurrentPrice) > 0:
     direction = "decrease"
   else:
     direction = "stay"
@@ -216,6 +223,8 @@ def calculateMatchStay(X, Y, orderbook):
 
   if min(EX+PoolX, EY+PoolY) == 0:
     matchType = "noMatch"
+    EX = 0
+    EY = 0
   elif EX == EY*swapPrice:
     matchType = "exactMatch"
   else:
@@ -237,8 +246,8 @@ def calculateSwapIncrease(X,Y,orderbook, orderPrice, lastOrderPrice):
     EX, EY = getExecutableAmt((lastOrderPrice+orderPrice)/2, orderbook)
     originalEX = EX
     originalEY = EY
-    swapPrice = (X + EX)/(Y + EY)
-    PoolY = Y - X/swapPrice
+    swapPrice = (X + 2*EX)/(Y + 2*EY) # newSwapPriceModel
+    PoolY = (swapPrice*Y - X) / (2*swapPrice) # newSwapPriceModel
     if lastOrderPrice < swapPrice < orderPrice and PoolY >= 0: # swapPrice within given price range?
       if EX == 0 and EY == 0: matchType = "noMatch"
       else: matchType = "exactMatch" # all orders are exactly matched
@@ -249,13 +258,15 @@ def calculateSwapIncrease(X,Y,orderbook, orderPrice, lastOrderPrice):
     originalEX = EX
     originalEY = EY
     swapPrice = orderPrice
-    PoolY = Y - X/swapPrice
-    # print(EX,EY,swapPrice,PoolY)
+    PoolY = (swapPrice*Y - X) / (2*swapPrice) # newSwapPriceModel
     EX = min(EX, (EY+PoolY)*swapPrice)
     EY = max(min(EY, EX/swapPrice - PoolY),0)
     matchType = "fractionalMatch"
   
-  return matchType, EX, EY, originalEX, originalEY, swapPrice, PoolY
+  if swapPrice < X/Y or PoolY < 0: transactAmt = 0
+  else: transactAmt = int(min(EX, (EY+PoolY)*swapPrice)*pseudoMaxInt)/pseudoMaxInt
+  
+  return matchType, EX, EY, originalEX, originalEY, swapPrice, PoolY, transactAmt
 
 
 def calculateMatchIncrease(X, Y, orderbook):
@@ -276,28 +287,24 @@ def calculateMatchIncrease(X, Y, orderbook):
     else:
 
       orderPrice = order["orderPrice"]
-      
-      # simulation process
-      EX, EY = getExecutableAmt(orderPrice, orderbook)
-      swapPrice = orderPrice
-      PoolY = Y - X/swapPrice
 
-      if swapPrice < X/Y or PoolY < 0: transactAmt = 0
-      else: transactAmt = min(EX, (EY+PoolY)*swapPrice)
-
-      matchType, EX, EY, originalEX, originalEY, swapPrice, PoolY = calculateSwapIncrease(X,Y,orderbook, orderPrice, lastOrderPrice)
+      matchType, EX, EY, originalEX, originalEY, swapPrice, PoolY, transactAmt = calculateSwapIncrease(X,Y,orderbook, orderPrice, lastOrderPrice)
 
       matchScenario.append([matchType, swapPrice, EX, EY, originalEX, originalEY,PoolX, PoolY, transactAmt])      
 
       # update last variables
       lastOrderPrice = orderPrice
-
+  
   maxScenario = ["noMatch",currentPrice,0,0,0,0,0,0,0]
   for scenario in matchScenario:
-    # print(scenario)
-    if scenario[8] > maxScenario[8]:
+    print(scenario)
+    if scenario[0] == "exactMatch" and scenario[8] > 0:
       maxScenario = scenario
-  # print(maxScenario)
+      break
+    else:
+      if scenario[8] > maxScenario[8]:
+        maxScenario = scenario
+  print(maxScenario)
 
   matchType = maxScenario[0]
   swapPrice = maxScenario[1]
@@ -320,8 +327,8 @@ def calculateSwapDecrease(X,Y,orderbook, orderPrice, lastOrderPrice):
     EX, EY = getExecutableAmt((lastOrderPrice+orderPrice)/2, orderbook)
     originalEX = EX
     originalEY = EY
-    swapPrice = (X + EX)/(Y + EY)
-    PoolX = X - Y*swapPrice
+    swapPrice = (X + 2*EX)/(Y + 2*EY) # newSwapPriceModel
+    PoolX = (X - swapPrice*Y) / 2 # newSwapPriceModel
     if orderPrice < swapPrice < lastOrderPrice and PoolX >= 0: # swapPrice within given price range?
       if EX == 0 and EY == 0: matchType = "noMatch"
       else: matchType = "exactMatch" # all orders are exactly matched
@@ -332,13 +339,15 @@ def calculateSwapDecrease(X,Y,orderbook, orderPrice, lastOrderPrice):
     originalEX = EX
     originalEY = EY
     swapPrice = orderPrice
-    PoolX = X - Y*swapPrice
-    # print(EX,EY,swapPrice,PoolY)
+    PoolX = (X - swapPrice*Y) / 2 # newSwapPriceModel
     EY = min(EY, (EX+PoolX)/swapPrice)
     EX = max(min(EX, EY*swapPrice - PoolX),0)
     matchType = "fractionalMatch"
   
-  return matchType, EX, EY, originalEX, originalEY, swapPrice, PoolX
+  if swapPrice > X/Y or PoolX < 0: transactAmt = 0
+  else: transactAmt = int(min(EY, (EX+PoolX)/swapPrice)*pseudoMaxInt)/pseudoMaxInt
+  
+  return matchType, EX, EY, originalEX, originalEY, swapPrice, PoolX, transactAmt
 
 
 def calculateMatchDecrease(X, Y, orderbook):
@@ -360,17 +369,7 @@ def calculateMatchDecrease(X, Y, orderbook):
 
       orderPrice = order["orderPrice"]
      
-      # simulation process
-      EX, EY = getExecutableAmt(orderPrice, orderbook)
-      swapPrice = orderPrice
-      PoolX = X - Y*swapPrice
-
-      if swapPrice > X/Y or PoolX < 0: transactAmt = 0
-      else: transactAmt = min(EY, (EX+PoolX)/swapPrice)
-
-      # print(swapPrice,transactAmt)
-
-      matchType, EX, EY, originalEX, originalEY, swapPrice, PoolX = calculateSwapDecrease(X,Y,orderbook, orderPrice, lastOrderPrice)
+      matchType, EX, EY, originalEX, originalEY, swapPrice, PoolX, transactAmt = calculateSwapDecrease(X,Y,orderbook, orderPrice, lastOrderPrice)
 
       matchScenario.append([matchType, swapPrice, EX, EY, originalEX, originalEY,PoolX, PoolY, transactAmt])  
 
@@ -379,10 +378,14 @@ def calculateMatchDecrease(X, Y, orderbook):
 
   maxScenario = ["noMatch",currentPrice,0,0,0,0,0,0,0]
   for scenario in matchScenario:
-    # print(scenario)
-    if scenario[8] > maxScenario[8]:
+    print(scenario)
+    if scenario[0] == "exactMatch" and scenario[8] > 0:
       maxScenario = scenario
-  # print(maxScenario)
+      break
+    else:
+      if scenario[8] > maxScenario[8]:
+        maxScenario = scenario
+  print(maxScenario)
 
   matchType = maxScenario[0]
   swapPrice = maxScenario[1]
@@ -403,8 +406,8 @@ def computePriceDirection(X, Y, orderbook):
   currentPrice = X/Y
 
   priceDirection = getPriceDirection(currentPrice, orderbook)
-  # print("priceDirection: " + str(priceDirection))
-  # print("\n")
+  print("priceDirection: " + str(priceDirection))
+  print("\n")
 
   if priceDirection == "stay":
 
@@ -670,8 +673,8 @@ def printOrderbook(XtoY, YtoX, currentPrice):
     if order["sellOrderAmt"] > 0 and order["orderPrice"] < minSellOrderPrice:
       minSellOrderPrice = order["orderPrice"]
     print(order)
-  # if maxBuyOrderPrice > minSellOrderPrice or maxBuyOrderPrice > currentPrice or minSellOrderPrice < currentPrice:
-  if maxBuyOrderPrice > minSellOrderPrice:
+  if maxBuyOrderPrice > minSellOrderPrice or maxBuyOrderPrice/currentPrice > 1.001 or minSellOrderPrice/currentPrice < 0.999:
+  # if maxBuyOrderPrice > minSellOrderPrice:
     return False
   else:
     return True
@@ -735,17 +738,15 @@ def standardSimulation():
   # simulation parameters
   feeRate = 0.003
   orderLifeSpanHeight = 10 # orders will be cancelled after this number of heights
-  simBlockNum = 100
+  simBlockNum = 10000
 
   # initialize states
   height = 1
-  X, Y = setPoolReserve()
-  currentPrice = X/Y
+  X, Y = setPoolReservePlain()
   maxOrderIDXtoY = 0
   maxOrderIDYtoX = 0
   XtoY = []
   YtoX = []
-  orderbook = []
   orderbookValidity = True
 
   # simulation
@@ -768,7 +769,7 @@ def standardSimulation():
     # swap pre-calculation
     matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY = swapCalculation(X, Y, XtoY, YtoX, height)
 
-    # print(matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY)
+    print(matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY)
 
     # find order matching
     matchResultXtoY, matchResultYtoX = findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate)
@@ -808,12 +809,10 @@ def nonEquilibriumSimulation():
   # initialize states
   height = 1
   X, Y = setPoolReservePlain()
-  currentPrice = X/Y
   maxOrderIDXtoY = 0
   maxOrderIDYtoX = 0
   XtoY = []
   YtoX = []
-  orderbook = []
   orderbookValidity = True
   EX = 1
   PoolX = 1
@@ -875,5 +874,5 @@ def nonEquilibriumSimulation():
 
 
 
-# standardSimulation()
-nonEquilibriumSimulation()
+standardSimulation()
+# nonEquilibriumSimulation()
