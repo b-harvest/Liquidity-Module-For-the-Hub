@@ -7,8 +7,8 @@
 import random
 import os
 
-pseudoZero = 0.0000000001
-pseudoMaxInt = 10000000000.0
+pseudoZero = 0.1**10
+pseudoMaxInt = 10**10
 
 def sortOrderPrice(value):
   return value["orderPrice"]
@@ -19,8 +19,8 @@ def setPoolReserve():
   return X, Y
 
 def setPoolReservePlain():
-  X = 100
-  Y = 100
+  X = 10000
+  Y = 10000
   return X, Y
 
 def getRandomOrders(X,Y):
@@ -79,7 +79,7 @@ def getNonEquilibriumOrders(X,Y):
 
 
 
-def addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height, orderLifeSpanHeight):
+def addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height, orderLifeSpanHeight, feeRate):
 
   i = 0
   for order in XtoYNewOrders:
@@ -93,9 +93,10 @@ def addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrder
       "orderPrice":orderPrice,
       "orderAmt":orderAmt,
       "matchedXAmt":0,
-      "refundXAmt":0,
       "receiveYAmt":0,
-      "feeYAmt":0
+      "feeXAmtPaid":0,
+      "feeXAmtReserve":orderAmt*feeRate*0.5,
+      "feeYAmtPaid":0,
     }
     XtoY.append(newOrder)
   maxOrderIDXtoY = i+maxOrderIDXtoY
@@ -112,9 +113,10 @@ def addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrder
       "orderPrice":orderPrice,
       "orderAmt":orderAmt,
       "matchedYAmt":0,
-      "refundYAmt":0,
       "receiveXAmt":0,
-      "feeXAmt":0
+      "feeYAmtPaid":0,
+      "feeYAmtReserve":orderAmt*feeRate*0.5,
+      "feeXAmtPaid":0,
     }
     YtoX.append(newOrder)
   maxOrderIDYtoX = i+maxOrderIDYtoX
@@ -455,7 +457,7 @@ def swapCalculation(X, Y, XtoY, YtoX, height):
 
     
 
-def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate):
+def findOrderMatch(X, Y, XtoY, YtoX, EX, EY, swapPrice, feeRate):
 
   # sort XtoY, YtoX
   XtoY = sorted(XtoY, key=sortOrderPrice, reverse=True)
@@ -506,6 +508,8 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate):
           fractionalMatchRatio = 1
         for matchOrder in matchOrderList:
           if fractionalMatchRatio > 0:
+            tempFeeXAmtPaid = matchOrder["feeXAmtReserve"]*fractionalMatchRatio
+            tempFeeXAmtReserve = matchOrder["feeXAmtReserve"] - tempFeeXAmtPaid
             matchResultXtoY.append({
               "orderID":matchOrder["orderID"],
               "orderHeight":matchOrder["orderHeight"],
@@ -513,9 +517,10 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate):
               "orderPrice":matchOrder["orderPrice"],
               "orderAmt":matchOrder["orderAmt"],
               "matchedXAmt":matchOrder["orderAmt"]*fractionalMatchRatio,
-              "refundXAmt":matchOrder["orderAmt"]*(1-fractionalMatchRatio),
               "receiveYAmt":matchOrder["orderAmt"]*fractionalMatchRatio/swapPrice,
-              "feeYAmt":matchOrder["orderAmt"]*fractionalMatchRatio/swapPrice*feeRate
+              "feeXAmtPaid":tempFeeXAmtPaid,
+              "feeXAmtReserve":tempFeeXAmtReserve,
+              "feeYAmtPaid":matchOrder["orderAmt"]*fractionalMatchRatio/swapPrice*feeRate*0.5
             })
       # update accumMatchAmt and initiate matchAmt and matchOrderList
       accumMatchAmt += matchAmt
@@ -571,6 +576,8 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate):
           fractionalMatchRatio = 1
         for matchOrder in matchOrderList:
           if fractionalMatchRatio > 0:
+            tempFeeYAmtPaid = matchOrder["feeYAmtReserve"]*fractionalMatchRatio
+            tempFeeYAmtReserve = matchOrder["feeYAmtReserve"] - tempFeeYAmtPaid
             matchResultYtoX.append({
               "orderID":matchOrder["orderID"],
               "orderHeight":matchOrder["orderHeight"],
@@ -578,9 +585,10 @@ def findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate):
               "orderPrice":matchOrder["orderPrice"],
               "orderAmt":matchOrder["orderAmt"],
               "matchedYAmt":matchOrder["orderAmt"]*fractionalMatchRatio,
-              "refundYAmt":matchOrder["orderAmt"]*(1-fractionalMatchRatio),
               "receiveXAmt":matchOrder["orderAmt"]*fractionalMatchRatio*swapPrice,
-              "feeYAmt":matchOrder["orderAmt"]*fractionalMatchRatio*swapPrice*feeRate
+              "feeYAmtPaid":tempFeeYAmtPaid,
+              "feeYAmtReserve":tempFeeYAmtReserve,
+              "feeXAmtPaid":matchOrder["orderAmt"]*fractionalMatchRatio*swapPrice*feeRate*0.5
             })
       # update accumMatchAmt and initiate matchAmt and matchOrderList
       accumMatchAmt += matchAmt
@@ -626,14 +634,23 @@ def updateState(X, Y, XtoY, YtoX, matchResultXtoY, matchResultYtoX):
         UserXdelta += -match["matchedXAmt"]
         PoolYdelta += -match["receiveYAmt"]
         UserYdelta += match["receiveYAmt"]
+        PoolXdelta += match["feeXAmtPaid"]
+        UserXdelta += -match["feeXAmtPaid"]
+        PoolYdelta += match["feeYAmtPaid"]
+        UserYdelta += -match["feeYAmtPaid"]
         if abs(order["orderAmt"] - order["matchedXAmt"]) < pseudoZero: # full match
+          PoolXdelta += order["orderAmt"] - order["matchedXAmt"]
+          UserXdelta += -(order["orderAmt"] - order["matchedXAmt"])
+          PoolXdelta += order["feeXAmtReserve"]
+          UserXdelta += -order["feeXAmtReserve"]
           XtoY.remove(order)
         else:
           order["orderAmt"] = match["orderAmt"]-match["matchedXAmt"]
           order["matchedXAmt"] = 0
-          order["refundXAmt"] = 0
           order["receiveYAmt"] = 0
-          order["feeYAmt"] = 0
+          order["feeXAmtPaid"] = 0
+          order["feeXAmtReserve"] = match["feeXAmtReserve"]
+          order["feeYAmtPaid"] = 0
         break
   
   for match in matchResultYtoX:
@@ -643,14 +660,23 @@ def updateState(X, Y, XtoY, YtoX, matchResultXtoY, matchResultYtoX):
         UserXdelta += match["receiveXAmt"]
         PoolYdelta += match["matchedYAmt"]
         UserYdelta += -match["matchedYAmt"]
+        PoolYdelta += match["feeYAmtPaid"]
+        UserYdelta += -match["feeYAmtPaid"]
+        PoolXdelta += match["feeXAmtPaid"]
+        UserXdelta += -match["feeXAmtPaid"]
         if abs(order["orderAmt"] - order["matchedYAmt"]) < pseudoZero: # full match
+          PoolYdelta += order["orderAmt"] - order["matchedYAmt"]
+          UserYdelta += -(order["orderAmt"] - order["matchedYAmt"])
+          PoolYdelta += order["feeYAmtReserve"]
+          UserYdelta += -order["feeYAmtReserve"]
           YtoX.remove(order)
         else:
           order["orderAmt"] = match["orderAmt"]-match["matchedYAmt"]
           order["matchedYAmt"] = 0
-          order["refundYAmt"] = 0
           order["receiveXAmt"] = 0
-          order["feeXAmt"] = 0
+          order["feeYAmtPaid"] = 0
+          order["feeYAmtReserve"] = match["feeYAmtReserve"]
+          order["feeXAmtPaid"] = 0
         break
   
   X += PoolXdelta
@@ -673,7 +699,7 @@ def printOrderbook(XtoY, YtoX, currentPrice):
     if order["sellOrderAmt"] > 0 and order["orderPrice"] < minSellOrderPrice:
       minSellOrderPrice = order["orderPrice"]
     print(order)
-  if maxBuyOrderPrice > minSellOrderPrice or maxBuyOrderPrice/currentPrice > 1.001 or minSellOrderPrice/currentPrice < 0.999:
+  if maxBuyOrderPrice > minSellOrderPrice or maxBuyOrderPrice/currentPrice > 1+0.1**5 or minSellOrderPrice/currentPrice < 1-0.1**5:
   # if maxBuyOrderPrice > minSellOrderPrice:
     return False
   else:
@@ -756,7 +782,7 @@ def standardSimulation():
     XtoYNewOrders, YtoXNewOrders = getRandomOrders(X,Y)
 
     # add new orders
-    XtoY, YtoX, maxOrderIDXtoY, maxOrderIDYtoX = addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height, orderLifeSpanHeight)
+    XtoY, YtoX, maxOrderIDXtoY, maxOrderIDYtoX = addOrders(XtoY, YtoX, XtoYNewOrders, YtoXNewOrders, maxOrderIDXtoY, maxOrderIDYtoX, height, orderLifeSpanHeight, feeRate)
 
     print("height:" + str(height) + ", X/Y:" + str(X/Y) + ", X:" + str(X) + ", Y:" + str(Y))
     print("\n")
@@ -772,7 +798,7 @@ def standardSimulation():
     print(matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY)
 
     # find order matching
-    matchResultXtoY, matchResultYtoX = findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate)
+    matchResultXtoY, matchResultYtoX = findOrderMatch(X, Y, XtoY, YtoX, EX, EY, swapPrice, feeRate)
 
     # swap execution
     X, Y, XtoY, YtoX, PoolXdelta, PoolYdelta = updateState(X, Y, XtoY, YtoX, matchResultXtoY, matchResultYtoX)
@@ -796,9 +822,13 @@ def standardSimulation():
     print("orderbook validity: " + str(orderbookValidity))
     print("\n")  
 
-    if orderbookValidity == False:
-      wait = input("pause")
+    print("(X/Y)/swapPrice-1 = " + str((X/Y)/swapPrice-1))
 
+    if orderbookValidity == False:
+      wait = input("overbook validaty false")
+
+    if abs((X/Y)/swapPrice-1) > 0.1**15:
+      wait = input("swap price is not equal to pool price")
 
 def nonEquilibriumSimulation():
 
@@ -843,7 +873,7 @@ def nonEquilibriumSimulation():
     print(matchType, swapPrice, EX, EY, originalEX, originalEY, PoolX, PoolY)
 
     # find order matching
-    matchResultXtoY, matchResultYtoX = findOrderMatch(XtoY, YtoX, EX, EY, swapPrice, feeRate)
+    matchResultXtoY, matchResultYtoX = findOrderMatch(X, Y, XtoY, YtoX, EX, EY, swapPrice, feeRate)
 
     # swap execution
     X, Y, XtoY, YtoX, PoolXdelta, PoolYdelta = updateState(X, Y, XtoY, YtoX, matchResultXtoY, matchResultYtoX)
